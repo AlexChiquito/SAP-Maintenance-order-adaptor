@@ -2,20 +2,15 @@
 
 # SAP Adaptor API Test Script
 # This script demonstrates how to use the SAP Adaptor API
-
-API_BASE_URL="http://localhost:8080/api/v1"
+BASE_URL="http://localhost:8080"
+API_BASE_URL="$BASE_URL/api/v1"
 
 echo "=== SAP Adaptor API Test Script ==="
 echo
 
 # Test health endpoint
 echo "1. Testing health endpoint..."
-curl -s "$API_BASE_URL/../health" | jq .
-echo
-
-# Test metrics endpoint
-echo "2. Testing metrics endpoint..."
-curl -s "$API_BASE_URL/../metrics" | jq .
+curl -s "$BASE_URL/health" | jq .
 echo
 
 # Test creating a maintenance order

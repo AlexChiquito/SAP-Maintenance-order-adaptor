@@ -16,10 +16,6 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 
 - RESTful API with OpenAPI 3.0 specification
 - SAP Plant Maintenance integration (with simulator mode for testing)
-- OAuth 2.0 authentication with SAP (optional in simulator mode)
-- Comprehensive error handling and logging
-- Health checks and metrics endpoints
-- Docker support
 - **Simulator Mode** for testing without real SAP access
 
 ## API Endpoints
@@ -54,6 +50,21 @@ cd sap-adaptor
 ```bash
 go mod tidy
 ```
+3. Use the setup script:
+```bash
+./setup.sh
+````
+### Manual installation
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd sap-adaptor
+```
+
+2. Install dependencies:
+```bash
+go mod tidy
+```
 
 3. Configure environment variables:
 ```bash
@@ -63,7 +74,7 @@ cp env.example .env
 
 4. Run the service:
 ```bash
-go run cmd/server
+go run ./cmd/server
 ```
 
 The service will start on `http://localhost:8080` in **simulator mode** by default.
@@ -90,10 +101,8 @@ The service can be configured via:
 
 For testing and demonstration purposes, the service runs in **simulator mode** by default:
 
-- **No SAP authentication required**
 - **Mock responses** for all SAP API calls
 - **Realistic data** that follows SAP response formats
-- **Perfect for testing** API structure and workflow
 
 ### Production Mode
 
@@ -120,7 +129,7 @@ The OpenAPI specification is available at:
 
 ## Testing with Simulator Mode
 
-The simulator mode is perfect for testing the API structure and workflow without needing access to a real SAP system.
+The simulator mode can be used for testing the API structure and workflow without needing access to a real SAP system.
 
 ### Quick Test Script
 
@@ -200,6 +209,11 @@ curl http://localhost:8080/api/v1/maintenance-orders/400000123
   ]
 }
 ```
+### Demo
+To test the end-to-end simulator demo, use:
+```bash
+make test-simulator
+```
 
 ### Simulator Behavior
 
@@ -213,7 +227,7 @@ The simulator generates realistic responses:
 
 ## Architecture
 
-The service follows a clean architecture pattern:
+The service follows the following architecture pattern:
 
 ```
 cmd/
@@ -229,36 +243,3 @@ internal/
 api/
 └── openapi.yaml           # OpenAPI specification
 ```
-
-## Development
-
-### Running Tests
-
-```bash
-go test ./...
-```
-
-### Code Generation
-
-```bash
-# Generate Swagger documentation
-swag init -g cmd/server/main.go
-```
-
-### Linting
-
-```bash
-golangci-lint run
-```
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## License
-
-MIT License - see LICENSE file for details
