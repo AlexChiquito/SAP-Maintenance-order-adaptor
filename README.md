@@ -34,11 +34,54 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 ## Quick Start
 
 ### Prerequisites
-- Go 1.21 or later
+- Docker and Docker Compose (recommended)
+- Or Go 1.21 or later (for local development)
 - Access to SAP Plant Maintenance system (optional - simulator mode available)
 - Digital Twin system (optional for testing)
 
-### Installation
+### Option 1: Using Docker Compose (Recommended)
+
+The project includes a `docker-compose.yml` file for easy deployment.
+
+#### Quick Start with Default Settings
+You can start the service immediately with default settings:
+```bash
+docker compose up -d
+```
+
+This will start the service in simulator mode, which is perfect for testing and development. By default:
+- The service runs on port 8080
+- Simulator mode is enabled (no real SAP connection required)
+- Log level is set to "info"
+- Health checks are configured
+- Automatic restarts are enabled
+- Logs are persisted in a Docker volume
+
+#### Custom Configuration
+For production or custom settings:
+
+1. Copy the environment file for Docker:
+```bash
+cp env.docker .env
+# Edit .env with your configuration
+```
+
+2. Start the service with your custom settings:
+```bash
+docker compose up -d
+```
+
+#### Managing the Service
+To stop the service:
+```bash
+docker compose down
+```
+
+View the logs in real-time:
+```bash
+docker compose logs -f
+```
+### Option 2: Local Development Setup
 
 1. Clone the repository:
 ```bash
@@ -46,48 +89,27 @@ git clone <repository-url>
 cd sap-adaptor
 ```
 
-2. Install dependencies:
-```bash
-go mod tidy
-```
-3. Use the setup script:
+2. Choose one of these methods:
+
+#### A. Using the setup script (Recommended)
 ```bash
 ./setup.sh
-````
-### Manual installation
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd sap-adaptor
 ```
 
-2. Install dependencies:
+#### B. Manual setup
 ```bash
+# Install dependencies
 go mod tidy
-```
 
-3. Configure environment variables:
-```bash
+# Configure environment
 cp env.example .env
 # Edit .env with your configuration (simulator mode is enabled by default)
-```
 
-4. Run the service:
-```bash
+# Run the service
 go run ./cmd/server
 ```
 
 The service will start on `http://localhost:8080` in **simulator mode** by default.
-
-### Docker
-
-```bash
-# Build the image
-docker build -t sap-adaptor .
-
-# Run the container
-docker run -p 8080:8080 --env-file .env sap-adaptor
-```
 
 ## Configuration
 
