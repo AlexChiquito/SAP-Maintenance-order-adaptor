@@ -1,0 +1,125 @@
+openapi: 3.0.0
+info:
+  title: Digital Twin Notification Ingress API
+  version: 1.0.0
+  description: Inbound endpoint owned by Digital Twin to receive maintenance completion notifications from the SAP Adaptor.
+tags:
+  - name: Notifications
+paths:
+  /api/v1/maintenance-completed:
+    post:
+      tags: [Notifications]
+      summary: Receive maintenance completion notification (TECO/CLSD)
+      description: Endpoint invoked by the SAP Adaptor when an order reaches completion.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceCompletedNotification'
+            examples:
+              example:
+                value:
+                  orderId: "400000586"
+                  status: "TECO"
+                  description: "Mock maintenance order"
+                  equipmentId: "10000045"
+                  plant: "1000"
+                  notificationId: "200000586"
+                  completedAt: "2025-10-20T10:39:46Z"
+                  actualStartTime: "2025-10-20T08:00:00Z"
+                  actualEndTime: "2025-10-20T16:00:00Z"
+                  operations:
+                    - operationId: "0010"
+                      text: "Mock operation"
+                      status: "CNF"
+                      actualWorkQuantity: 4
+                      workQuantityUnit: "H"
+      responses:
+        '202':
+          description: Accepted for processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessResponse'
+              examples:
+                example:
+                  value:
+                    success: true
+                    message: "Notification accepted"
+        '400':
+          description: Invalid payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Server error
+
+components:
+  schemas:
+    MaintenanceCompletedNotification:
+      type: object
+      required: [orderId, status, completedAt]
+      properties:
+        orderId:
+          type: string
+        status:
+          type: string
+          description: Expected TECO or CLSD
+        description:
+          type: string
+        equipmentId:
+          type: string
+        plant:
+          type: string
+        notificationId:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
+        actualStartTime:
+          type: string
+          format: date-time
+        actualEndTime:
+          type: string
+          format: date-time
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatus'
+
+    OperationStatus:
+      type: object
+      properties:
+        operationId:
+          type: string
+        text:
+          type: string
+        status:
+          type: string
+        actualWorkQuantity:
+          type: number
+          format: float
+        workQuantityUnit:
+          type: string
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: string
+
+

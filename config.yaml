@@ -1,0 +1,23 @@
+# SAP Adaptor Configuration
+
+# Server Configuration
+server:
+  port: "8080"
+  host: "0.0.0.0"
+
+# SAP Configuration
+sap:
+  baseUrl: "simulator"  # Set to "simulator" for demo mode, or actual SAP URL for production
+  username: ""  # Not required in simulator mode
+  password: ""  # Not required in simulator mode
+  clientId: ""  # Not required in simulator mode
+  clientSecret: ""  # Not required in simulator mode
+  tokenUrl: ""  # Not required in simulator mode
+  timeout: 30
+  simulatorMode: true  # Set to true for demo/testing
+
+# Digital Twin Configuration
+digitalTwin:
+  baseUrl: "https://your-digital-twin-system.com/api"
+  apiKey: "your-digital-twin-api-key"
+  timeout: 30

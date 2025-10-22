@@ -1,0 +1,204 @@
+openapi: 3.0.3
+info:
+  title: SAP Adaptor API
+  version: 1.0.0
+  description: APIs exposed by the SAP Adaptor for creating and querying maintenance orders.
+tags:
+  - name: Maintenance Orders
+paths:
+  /api/v1/maintenance-orders:
+    post:
+      tags: [Maintenance Orders]
+      summary: Create maintenance order from Digital Twin event
+      description: Accepts a Digital Twin maintenance event and creates SAP notification and order.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MaintenanceOrderEvent'
+            examples:
+              example:
+                value:
+                  equipmentId: "10000045"
+                  functionalLocation: "FL100-200-300"
+                  plant: "1000"
+                  description: "Pump showing abnormal vibration - needs seal replacement"
+                  priority: "3"
+                  maintenanceOrderType: "PM01"
+                  plannedStartTime: "2025-10-21T08:00:00Z"
+                  plannedEndTime: "2025-10-21T16:00:00Z"
+                  operations:
+                    - text: "Disassemble pump and inspect seal"
+                      workCenter: "PUMP-WC01"
+                      duration: 4
+                      durationUnit: "H"
+                    - text: "Replace seal and reassemble"
+                      workCenter: "PUMP-WC01"
+                      duration: 3
+                      durationUnit: "H"
+      responses:
+        '200':
+          description: Created maintenance order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateMaintenanceOrderResponse'
+              examples:
+                example:
+                  value:
+                    orderId: "400000586"
+                    notificationId: "200000586"
+                    status: "REL"
+                    message: "Maintenance order created successfully"
+                    createdAt: "2025-10-20T10:39:46Z"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /api/v1/maintenance-orders/{id}:
+    get:
+      tags: [Maintenance Orders]
+      summary: Get maintenance order status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: SAP maintenance order ID
+      responses:
+        '200':
+          description: Current order status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MaintenanceOrderStatus'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /health:
+    get:
+      summary: Health check
+      responses:
+        '200':
+          description: OK
+
+components:
+  schemas:
+    MaintenanceOrderEvent:
+      type: object
+      required: [equipmentId, plant, description, maintenanceOrderType]
+      properties:
+        equipmentId:
+          type: string
+        functionalLocation:
+          type: string
+        plant:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          description: SAP priority code
+        maintenanceOrderType:
+          type: string
+        plannedStartTime:
+          type: string
+          format: date-time
+        plannedEndTime:
+          type: string
+          format: date-time
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/MaintenanceOperation'
+
+    MaintenanceOperation:
+      type: object
+      required: [text, workCenter, duration, durationUnit]
+      properties:
+        text:
+          type: string
+        workCenter:
+          type: string
+        duration:
+          type: number
+          format: float
+        durationUnit:
+          type: string
+
+    CreateMaintenanceOrderResponse:
+      type: object
+      properties:
+        orderId:
+          type: string
+        notificationId:
+          type: string
+        status:
+          type: string
+          description: Current header status (e.g., CRTD, REL, TECO, CLSD)
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    MaintenanceOrderStatus:
+      type: object
+      properties:
+        orderId:
+          type: string
+        status:
+          type: string
+        description:
+          type: string
+        equipmentId:
+          type: string
+        plant:
+          type: string
+        notificationId:
+          type: string
+        actualStartTime:
+          type: string
+          format: date-time
+        actualEndTime:
+          type: string
+          format: date-time
+        operations:
+          type: array
+          items:
+            $ref: '#/components/schemas/OperationStatus'
+
+    OperationStatus:
+      type: object
+      properties:
+        operationId:
+          type: string
+        text:
+          type: string
+        status:
+          type: string
+          description: e.g., CNF (Confirmed)
+        actualWorkQuantity:
+          type: number
+          format: float
+        workQuantityUnit:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+        details:
+          type: string
+
+
