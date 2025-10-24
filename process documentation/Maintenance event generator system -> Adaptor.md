@@ -1,5 +1,5 @@
 ### Architecture
-![[EventGenAdaptor.excalidraw]]
+![Event gen adaptor diagram](./images/EventGenAdaptor.excalidraw.png)
 #### Services
 - Maintenance order event (1)
 - SAP Maintenance Notification(2) 

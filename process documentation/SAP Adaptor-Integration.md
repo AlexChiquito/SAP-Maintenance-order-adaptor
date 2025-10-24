@@ -7,7 +7,7 @@ Maintenance notifications vs Maintenance orders
 ---
 ### Workflow And Architecture
 
-![[swimlanes-72f48baba1d5d9527a49ff8f2549f281.png]]
+![Swimlanes diagram](./images/plant-maintenance-main-flow.png)
 
 1. Request a Maintenance notification 
 2. Get the notification number from SAP
@@ -15,7 +15,7 @@ Maintenance notifications vs Maintenance orders
 4. Save the Order number from the response
 5. Get order using interface and check that the status is completed 
 
-![[xTT2 SAP Use-case Architecture]]
+![xTT2 SAP Use-case Architecture](./images/xTT2-sap-use-case-architecture.png)
 
 ### Tasks and Estimations
 
