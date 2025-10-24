@@ -1,6 +1,6 @@
 # SAP Adaptor - Quick Start Guide
 
-## 🚀 One-Command Setup
+## One-Command Setup
 
 ```bash
 # Clone the repository
@@ -11,7 +11,7 @@ cd "SAP Adaptor"
 ./setup.sh
 ```
 
-That's it! The SAP Adaptor will be running on `http://localhost:8080`
+The SAP Adaptor will be running on `http://localhost:8080`
 
 ## 🔧 Configuration
 
@@ -35,14 +35,13 @@ Edit `.env` file to configure:
 - **Create Order**: `POST /api/v1/maintenance-orders`
 - **Get Order**: `GET /api/v1/maintenance-orders/{id}`
 - **Maintenance Done**: `POST /api/v1/maintenance-done`
-- **Metrics**: `GET /metrics`
 
-## 📖 API Documentation
+## API Documentation
 
 - **Swagger UI**: http://localhost:8080/swagger/index.html
 - **OpenAPI Spec**: http://localhost:8080/swagger/doc.json
 
-## 🛠️ Development Commands
+## Development Commands
 
 ```bash
 # View logs
@@ -88,4 +87,3 @@ make demo-polling
 ├── Dockerfile            # Container build
 └── setup.sh             # Quick setup script
 ```
-
