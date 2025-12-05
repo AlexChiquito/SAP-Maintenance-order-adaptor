@@ -16,7 +16,10 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 
 - RESTful API with OpenAPI 3.0 specification
 - SAP Plant Maintenance integration (with simulator mode for testing)
-- **Simulator Mode** for testing without real SAP access
+- **Simulator Mode** - Standalone HTTP service for testing without real SAP
+- **Real HTTP Communication** - Adaptor and simulator communicate via actual network calls
+- **Container Ready** - Can be deployed in separate containers
+- **Interactive Demo** - Shows complete data flow between systems
 
 ## API Endpoints
 
@@ -30,6 +33,24 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 ### System
 - `GET /health` - Health check
 - `GET /metrics` - Service metrics
+
+## 🎬 Quick Demo
+
+See the complete data flow between systems:
+
+```bash
+# Automated demo (starts simulator and shows flow)
+./run-demo.sh
+
+# Or manually:
+# Terminal 1: Start simulator
+./bin/simulator
+
+# Terminal 2: Run demo
+./bin/demo-flow
+```
+
+See [DEMO_GUIDE.md](DEMO_GUIDE.md) for detailed demo documentation.
 
 ## Quick Start
 

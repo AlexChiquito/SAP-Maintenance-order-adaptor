@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"sap-adaptor/internal/config"
 	"sap-adaptor/internal/models"
 	"sap-adaptor/internal/sap"
@@ -29,14 +30,22 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
 	
-	// Create config with simulator mode
-	cfg := config.SAPConfig{
-		BaseURL:       "simulator",
-		SimulatorMode: true,
-		Timeout:       30,
+	// Check for simulator URL from environment, default to localhost
+	simulatorURL := os.Getenv("SAP_SIMULATOR_URL")
+	if simulatorURL == "" {
+		simulatorURL = "http://localhost:8081"
 	}
 	
-	// Create SAP client
+	fmt.Printf("ℹ️  Using simulator at: %s\n", simulatorURL)
+	fmt.Println("   (Make sure the simulator is running: go run ./cmd/simulator)")
+	
+	// Create config pointing to simulator service
+	cfg := config.SAPConfig{
+		BaseURL: simulatorURL,
+		Timeout: 30,
+	}
+	
+	// Create SAP client - it will make real HTTP calls to the simulator
 	sapClient := sap.NewClient(cfg, logger)
 	
 	// (Not using MaintenanceService here; custom polling below)
