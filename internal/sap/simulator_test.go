@@ -42,13 +42,13 @@ func TestMockGenerator_CreateMockOrderResponse(t *testing.T) {
 	generator := NewMockGenerator()
 
 	req := &models.SAPOrderRequest{
-		MaintenanceOrderType:    "PM01",
-		Description:             "Test order",
-		Equipment:               "10000045",
-		FunctionalLocation:      "FL100-200-300",
-		Plant:                   "1000",
-		MaintenanceNotification: "200000123",
-		Priority:                "3",
+		MaintenanceOrderType:       "PM01",
+		Description:                "Test order",
+		Equipment:                  "10000045",
+		FunctionalLocation:         "FL100-200-300",
+		Plant:                      "1000",
+		MaintenanceNotification:    "200000123",
+		Priority:                   "3",
 		MaintOrdBasicStartDateTime: time.Now().Format(time.RFC3339),
 		MaintOrdBasicEndDateTime:   time.Now().Add(8 * time.Hour).Format(time.RFC3339),
 		ToMaintenanceOrderOperation: []models.SAPOrderOperation{

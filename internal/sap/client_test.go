@@ -39,9 +39,9 @@ func TestClient_CreateNotification(t *testing.T) {
 		// Create response
 		resp := models.SAPNotificationResponse{
 			D: struct {
-				Notification   string `json:"Notification"`
-				Description    string `json:"Description"`
-				Plant          string `json:"Plant"`
+				Notification string `json:"Notification"`
+				Description  string `json:"Description"`
+				Plant        string `json:"Plant"`
 			}{
 				Notification: "200000123",
 				Description:  req.Description,
@@ -102,18 +102,18 @@ func TestClient_CreateOrder(t *testing.T) {
 		// Create response
 		resp := models.SAPOrderResponse{
 			D: struct {
-				MaintenanceOrder                string `json:"MaintenanceOrder"`
-				MaintenanceOrderType            string `json:"MaintenanceOrderType"`
-				Description                     string `json:"Description"`
-				Equipment                       string `json:"Equipment"`
-				Plant                           string `json:"Plant"`
-				OrderStatus                     string `json:"OrderStatus"`
-				MaintOrdBasicStartDateTime      string `json:"MaintOrdBasicStartDateTime"`
-				MaintOrdBasicEndDateTime        string `json:"MaintOrdBasicEndDateTime"`
-				MaintenanceNotification         string `json:"MaintenanceNotification"`
-				Metadata                        struct {
-					ID  string `json:"id"`
-					URI string `json:"uri"`
+				MaintenanceOrder           string `json:"MaintenanceOrder"`
+				MaintenanceOrderType       string `json:"MaintenanceOrderType"`
+				Description                string `json:"Description"`
+				Equipment                  string `json:"Equipment"`
+				Plant                      string `json:"Plant"`
+				OrderStatus                string `json:"OrderStatus"`
+				MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
+				MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
+				MaintenanceNotification    string `json:"MaintenanceNotification"`
+				Metadata                   struct {
+					ID   string `json:"id"`
+					URI  string `json:"uri"`
 					Type string `json:"type"`
 				} `json:"__metadata"`
 				ToMaintenanceOrderOperation struct {
@@ -177,18 +177,18 @@ func TestClient_GetOrder(t *testing.T) {
 		// Create response
 		resp := models.SAPOrderResponse{
 			D: struct {
-				MaintenanceOrder                string `json:"MaintenanceOrder"`
-				MaintenanceOrderType            string `json:"MaintenanceOrderType"`
-				Description                     string `json:"Description"`
-				Equipment                       string `json:"Equipment"`
-				Plant                           string `json:"Plant"`
-				OrderStatus                     string `json:"OrderStatus"`
-				MaintOrdBasicStartDateTime      string `json:"MaintOrdBasicStartDateTime"`
-				MaintOrdBasicEndDateTime        string `json:"MaintOrdBasicEndDateTime"`
-				MaintenanceNotification         string `json:"MaintenanceNotification"`
-				Metadata                        struct {
-					ID  string `json:"id"`
-					URI string `json:"uri"`
+				MaintenanceOrder           string `json:"MaintenanceOrder"`
+				MaintenanceOrderType       string `json:"MaintenanceOrderType"`
+				Description                string `json:"Description"`
+				Equipment                  string `json:"Equipment"`
+				Plant                      string `json:"Plant"`
+				OrderStatus                string `json:"OrderStatus"`
+				MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
+				MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
+				MaintenanceNotification    string `json:"MaintenanceNotification"`
+				Metadata                   struct {
+					ID   string `json:"id"`
+					URI  string `json:"uri"`
 					Type string `json:"type"`
 				} `json:"__metadata"`
 				ToMaintenanceOrderOperation struct {

@@ -70,8 +70,8 @@ func handleCreateNotification(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.WithFields(logrus.Fields{
-		"equipment": req.Equipment,
-		"plant":     req.Plant,
+		"equipment":   req.Equipment,
+		"plant":       req.Plant,
 		"description": req.Description,
 	}).Info("Creating mock notification")
 
@@ -111,10 +111,10 @@ func handleCreateOrder(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logger.WithFields(logrus.Fields{
-		"equipment":     req.Equipment,
-		"plant":         req.Plant,
-		"notification":  req.MaintenanceNotification,
-		"operations":    len(req.ToMaintenanceOrderOperation),
+		"equipment":    req.Equipment,
+		"plant":        req.Plant,
+		"notification": req.MaintenanceNotification,
+		"operations":   len(req.ToMaintenanceOrderOperation),
 	}).Info("Creating mock order")
 
 	// Generate mock response

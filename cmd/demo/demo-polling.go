@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"sap-adaptor/internal/config"
 	"sap-adaptor/internal/models"
-	"sap-adaptor/internal/services"
 	"sap-adaptor/internal/sap"
+	"sap-adaptor/internal/services"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -46,9 +46,9 @@ func main() {
 		PlannedEndTime:       &[]time.Time{time.Now().Add(9 * time.Hour)}[0],
 		Operations: []models.MaintenanceOperation{
 			{
-				Text:          "Test operation",
-				WorkCenter:    "TEST-WC01",
-				Duration:      4.0,
+				Text:         "Test operation",
+				WorkCenter:   "TEST-WC01",
+				Duration:     4.0,
 				DurationUnit: "H",
 			},
 		},
@@ -115,4 +115,3 @@ func main() {
 	fmt.Println("- Order is cancelled")
 	fmt.Println("- System is shut down")
 }
-
