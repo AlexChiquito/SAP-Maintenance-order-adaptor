@@ -1,0 +1,465 @@
+openapi: 3.0.0
+info:
+  title: SAP Maintenance Order API (Simplified)
+  version: 1.0.0
+  description: |
+    Simplified SAP Maintenance Order API specification.
+    Based on SAP API_MAINTENANCEORDER_0002 v2.0.0.
+    
+    This specification covers only the endpoints used by the SAP Adaptor:
+    - Create maintenance notifications
+    - Create maintenance orders with operations
+    - Retrieve maintenance order status
+    
+    Note: This is a subset of the full SAP API, simplified for clarity.
+
+servers:
+  - url: http://localhost:8081
+    description: Local SAP Simulator
+  - url: https://your-sap-system.com/sap/opu/odata/sap
+    description: Production SAP System
+
+paths:
+  /API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification:
+    post:
+      summary: Create maintenance notification
+      description: Creates a new maintenance notification in SAP
+      operationId: createNotification
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationRequest'
+      responses:
+        '201':
+          description: Notification created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /API_MAINTENANCE_ORDER/A_MaintenanceOrder:
+    post:
+      summary: Create maintenance order
+      description: |
+        Creates a new maintenance order in SAP.
+        Can include operations via the to_MaintenanceOrderOperation navigation property.
+      operationId: createOrder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderRequest'
+      responses:
+        '201':
+          description: Order created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /API_MAINTENANCE_ORDER/A_MaintenanceOrder('{orderId}'):
+    get:
+      summary: Get maintenance order by ID
+      description: Retrieves a maintenance order with its operations
+      operationId: getOrder
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          description: Order number (12 characters max)
+          schema:
+            type: string
+            maxLength: 12
+      responses:
+        '200':
+          description: Order retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderResponse'
+        '404':
+          description: Order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    NotificationRequest:
+      type: object
+      required:
+        - NotificationType
+        - Description
+        - Plant
+      properties:
+        NotificationType:
+          type: string
+          maxLength: 2
+          description: Notification type (e.g., M1 for maintenance)
+          example: "M1"
+        Description:
+          type: string
+          maxLength: 40
+          description: Short description of the issue
+          example: "Pump showing abnormal vibration"
+        Equipment:
+          type: string
+          maxLength: 18
+          nullable: true
+          description: Equipment number
+          example: "10000045"
+        FunctionalLocation:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Functional location
+          example: "FL100-200-300"
+        Plant:
+          type: string
+          maxLength: 4
+          description: Plant code
+          example: "1000"
+        Priority:
+          type: string
+          maxLength: 1
+          nullable: true
+          description: Priority (1=Very High to 9=Very Low)
+          example: "3"
+
+    NotificationResponse:
+      type: object
+      properties:
+        d:
+          type: object
+          properties:
+            Notification:
+              type: string
+              maxLength: 12
+              description: Created notification number
+              example: "200000123"
+            Description:
+              type: string
+              maxLength: 40
+              example: "Pump showing abnormal vibration"
+            Plant:
+              type: string
+              maxLength: 4
+              example: "1000"
+
+    OrderRequest:
+      type: object
+      required:
+        - MaintenanceOrderType
+        - Description
+        - Plant
+      properties:
+        MaintenanceOrderType:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Order type (e.g., PM01 for corrective maintenance)
+          example: "PM01"
+        Description:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Order description
+          example: "Pump seal replacement"
+        Equipment:
+          type: string
+          maxLength: 18
+          nullable: true
+          description: Equipment number
+          example: "10000045"
+        FunctionalLocation:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Functional location
+          example: "FL100-200-300"
+        Plant:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Maintenance plant
+          example: "1000"
+        MaintenancePlanningPlant:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Planning plant (usually same as Plant)
+          example: "1000"
+        Priority:
+          type: string
+          maxLength: 1
+          nullable: true
+          description: Priority
+          example: "3"
+        MaintenanceNotification:
+          type: string
+          maxLength: 12
+          nullable: true
+          description: Reference notification number
+          example: "200000123"
+        MaintOrdBasicStartDateTime:
+          type: string
+          nullable: true
+          description: Basic start date/time (ISO 8601 format)
+          example: "2025-12-08T08:00:00Z"
+        MaintOrdBasicEndDateTime:
+          type: string
+          nullable: true
+          description: Basic end date/time (ISO 8601 format)
+          example: "2025-12-08T16:00:00Z"
+        to_MaintenanceOrderOperation:
+          type: array
+          description: Order operations (deep insert)
+          items:
+            $ref: '#/components/schemas/OperationRequest'
+
+    OperationRequest:
+      type: object
+      properties:
+        OperationText:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Operation short text
+          example: "Disassemble pump"
+        WorkCenter:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Work center
+          example: "PUMP-WC01"
+        Plant:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Plant for work center
+          example: "1000"
+        OperationControlKey:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Control key for operation
+          example: "PM01"
+        OperationStandardDuration:
+          type: string
+          nullable: true
+          description: Standard duration (as string)
+          example: "4"
+        OperationDurationUnit:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: Duration unit (H=Hours, MIN=Minutes)
+          example: "H"
+
+    OrderResponse:
+      type: object
+      properties:
+        d:
+          type: object
+          properties:
+            MaintenanceOrder:
+              type: string
+              maxLength: 12
+              description: Order number
+              example: "400000123"
+            MaintenanceOrderType:
+              type: string
+              maxLength: 4
+              nullable: true
+              description: Order type
+              example: "PM01"
+            Description:
+              type: string
+              maxLength: 40
+              nullable: true
+              description: Order description
+              example: "Pump seal replacement"
+            Equipment:
+              type: string
+              maxLength: 18
+              nullable: true
+              description: Equipment number
+              example: "10000045"
+            Plant:
+              type: string
+              maxLength: 4
+              nullable: true
+              description: Plant
+              example: "1000"
+            OrderStatus:
+              type: string
+              maxLength: 4
+              nullable: true
+              description: |
+                Order status code:
+                - CRTD: Created
+                - REL: Released
+                - TECO: Technically Completed
+                - CLSD: Closed
+              example: "CRTD"
+            MaintOrdBasicStartDateTime:
+              type: string
+              nullable: true
+              description: Basic start date/time
+              example: "2025-12-08T08:00:00Z"
+            MaintOrdBasicEndDateTime:
+              type: string
+              nullable: true
+              description: Basic end date/time
+              example: "2025-12-08T16:00:00Z"
+            MaintenanceNotification:
+              type: string
+              maxLength: 12
+              nullable: true
+              description: Notification number
+              example: "200000123"
+            __metadata:
+              type: object
+              description: OData metadata
+              properties:
+                id:
+                  type: string
+                  example: ".../A_MaintenanceOrder('400000123')"
+                uri:
+                  type: string
+                  example: ".../A_MaintenanceOrder('400000123')"
+                type:
+                  type: string
+                  example: "API_MAINTENANCE_ORDER.A_MaintenanceOrderType"
+            to_MaintenanceOrderOperation:
+              type: object
+              description: Navigation to operations
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/OperationResponse'
+
+    OperationResponse:
+      type: object
+      properties:
+        MaintenanceOrder:
+          type: string
+          maxLength: 12
+          description: Order number
+          example: "400000123"
+        MaintenanceOrderOperation:
+          type: string
+          maxLength: 4
+          description: Operation number
+          example: "0010"
+        OperationText:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Operation short text
+          example: "Disassemble pump"
+        WorkCenter:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Work center
+          example: "PUMP-WC01"
+        OperationControlKey:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Control key
+          example: "PM01"
+        OperationStandardDuration:
+          type: string
+          nullable: true
+          description: Standard duration
+          example: "4"
+        OperationDurationUnit:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: Duration unit
+          example: "H"
+        OperationStatus:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Operation status
+          example: "CNF"
+        ActualWorkQuantity:
+          type: string
+          nullable: true
+          description: Actual work quantity
+          example: "4.0"
+        WorkQuantityUnit:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: Work quantity unit
+          example: "H"
+        __metadata:
+          type: object
+          description: OData metadata
+          properties:
+            id:
+              type: string
+            uri:
+              type: string
+            type:
+              type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+            message:
+              type: object
+              properties:
+                lang:
+                  type: string
+                  example: "en"
+                value:
+                  type: string
+                  description: Error message
+                  example: "Invalid request"
