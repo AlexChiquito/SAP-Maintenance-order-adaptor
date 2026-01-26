@@ -2,14 +2,14 @@ package config
 
 import (
 	"fmt"
-	
+
 	"github.com/spf13/viper"
 )
 
 // Config holds all configuration for the application
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
-	SAP    SAPConfig    `mapstructure:"sap"`
+	Server      ServerConfig      `mapstructure:"server"`
+	SAP         SAPConfig         `mapstructure:"sap"`
 	DigitalTwin DigitalTwinConfig `mapstructure:"digitalTwin"`
 }
 
