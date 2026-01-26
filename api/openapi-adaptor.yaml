@@ -47,8 +47,8 @@ paths:
               examples:
                 example:
                   value:
-                    orderId: "400000586"
-                    notificationId: "200000586"
+                    maintenanceOrder: "400000586"
+                    maintenanceNotification: "200000586"
                     status: "REL"
                     message: "Maintenance order created successfully"
                     createdAt: "2025-10-20T10:39:46Z"
@@ -136,10 +136,12 @@ components:
     CreateMaintenanceOrderResponse:
       type: object
       properties:
-        orderId:
+        maintenanceOrder:
           type: string
-        notificationId:
+          description: SAP Maintenance Order Number
+        maintenanceNotification:
           type: string
+          description: SAP Maintenance Notification Number
         status:
           type: string
           description: Current header status (e.g., CRTD, REL, TECO, CLSD)
@@ -152,18 +154,21 @@ components:
     MaintenanceOrderStatus:
       type: object
       properties:
-        orderId:
+        maintenanceOrder:
           type: string
+          description: SAP Maintenance Order Number
         status:
           type: string
         description:
           type: string
-        equipmentId:
+        equipment:
           type: string
+          description: SAP Equipment Number
         plant:
           type: string
-        notificationId:
+        maintenanceNotification:
           type: string
+          description: SAP Maintenance Notification Number
         actualStartTime:
           type: string
           format: date-time
@@ -178,8 +183,9 @@ components:
     OperationStatus:
       type: object
       properties:
-        operationId:
+        maintenanceOrderOperation:
           type: string
+          description: SAP Maintenance Order Operation Number
         text:
           type: string
         status:
@@ -189,6 +195,30 @@ components:
           type: number
           format: float
         workQuantityUnit:
+          type: string
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/ComponentStatus'
+
+    ComponentStatus:
+      type: object
+      properties:
+        material:
+          type: string
+          description: Material/Part number
+        description:
+          type: string
+        requirementQuantity:
+          type: number
+          format: float
+        materialUnit:
+          type: string
+        goodsMovementType:
+          type: string
+        plant:
+          type: string
+        storageLocation:
           type: string
 
     ErrorResponse:

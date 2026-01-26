@@ -166,7 +166,8 @@ func (c *Client) GetOrder(ctx context.Context, orderID string) (*models.SAPOrder
 	// Create URL with expand parameter
 	baseURL := c.config.BaseURL + "/API_MAINTENANCE_ORDER/A_MaintenanceOrder('" + orderID + "')"
 	params := url.Values{}
-	params.Add("$expand", "to_MaintenanceOrderOperation")
+	// Expand operations and object list (components are at operation level)
+	params.Add("$expand", "to_MaintenanceOrderOperation,to_MaintOrderObjectListItem")
 	fullURL := baseURL + "?" + params.Encode()
 
 	// Create HTTP request
@@ -265,12 +266,12 @@ func ConvertMaintenanceOrderEventToOrderRequest(event *models.MaintenanceOrderEv
 // ConvertSAPOrderResponseToStatus converts SAP order response to MaintenanceOrderStatus
 func ConvertSAPOrderResponseToStatus(resp *models.SAPOrderResponse) *models.MaintenanceOrderStatus {
 	status := &models.MaintenanceOrderStatus{
-		OrderID:        resp.D.MaintenanceOrder,
-		Status:         resp.D.OrderStatus,
-		Description:    resp.D.Description,
-		EquipmentID:    resp.D.Equipment,
-		Plant:          resp.D.Plant,
-		NotificationID: resp.D.MaintenanceNotification,
+		MaintenanceOrder:        resp.D.MaintenanceOrder,
+		Status:                  resp.D.OrderStatus,
+		Description:             resp.D.Description,
+		Equipment:               resp.D.Equipment,
+		Plant:                   resp.D.Plant,
+		MaintenanceNotification: resp.D.MaintenanceNotification,
 	}
 
 	// Parse time fields if provided
@@ -285,20 +286,54 @@ func ConvertSAPOrderResponseToStatus(resp *models.SAPOrderResponse) *models.Main
 		}
 	}
 
-	// Convert operations
+	// Convert operations and their components
 	for _, op := range resp.D.ToMaintenanceOrderOperation.Results {
 		opStatus := models.OperationStatus{
-			OperationID:      op.MaintenanceOrderOperation,
-			Text:             op.OperationText,
-			Status:           op.OperationStatus,
-			WorkQuantityUnit: op.WorkQuantityUnit,
+			MaintenanceOrderOperation: op.MaintenanceOrderOperation,
+			Text:                      op.OperationText,
+			Status:                    op.OperationStatus,
+			WorkQuantityUnit:          op.WorkQuantityUnit,
 		}
 		if op.ActualWorkQuantity != "" {
 			if qty, err := strconv.ParseFloat(op.ActualWorkQuantity, 64); err == nil {
 				opStatus.ActualWorkQuantity = qty
 			}
 		}
+		
+		// Extract components from operation level (matches real SAP structure)
+		if op.ToMaintOrderOpComponent2.Results != nil {
+			for _, comp := range op.ToMaintOrderOpComponent2.Results {
+				compStatus := models.ComponentStatus{
+					Material:            comp.Product,
+					Description:         comp.MaintOrdOperationComponentText,
+					MaterialUnit:        comp.BaseUnit,
+					GoodsMovementType:   comp.GoodsMovementType,
+					Plant:               comp.Plant,
+					StorageLocation:     comp.StorageLocation,
+				}
+				if comp.MaintOrdOpCompRequiredQuantity != "" {
+					if qty, err := strconv.ParseFloat(comp.MaintOrdOpCompRequiredQuantity, 64); err == nil {
+						compStatus.RequirementQuantity = qty
+					}
+				}
+				opStatus.Components = append(opStatus.Components, compStatus)
+			}
+		}
+		
 		status.Operations = append(status.Operations, opStatus)
+	}
+
+	// Convert object list
+	if resp.D.ToMaintOrderObjectListItem.Results != nil {
+		for _, obj := range resp.D.ToMaintOrderObjectListItem.Results {
+			objStatus := models.ObjectListItemStatus{
+				Equipment:          obj.Equipment,
+				Material:           obj.Material,
+				SerialNumber:       obj.SerialNumber,
+				FunctionalLocation: obj.FunctionalLocation,
+			}
+			status.ObjectList = append(status.ObjectList, objStatus)
+		}
 	}
 
 	return status

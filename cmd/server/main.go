@@ -11,7 +11,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
@@ -29,11 +28,25 @@ func main() {
 	logger := logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
 
+	// Log configuration
+	logger.WithFields(logrus.Fields{
+		"sapBaseURL":     cfg.SAP.BaseURL,
+		"digitalTwinURL": cfg.DigitalTwin.BaseURL,
+	}).Info("Configuration loaded")
+
 	// Initialize SAP client
 	sapClient := sap.NewClient(cfg.SAP, logger)
 
 	// Initialize services
 	maintenanceService := services.NewMaintenanceService(sapClient, logger)
+
+	// Configure Digital Twin integration
+	if cfg.DigitalTwin.BaseURL != "" {
+		maintenanceService.SetDigitalTwinConfig(cfg.DigitalTwin.BaseURL, cfg.DigitalTwin.APIKey)
+		logger.WithField("url", cfg.DigitalTwin.BaseURL).Info("Digital Twin integration configured")
+	} else {
+		logger.Warn("Digital Twin URL not configured - completion notifications will not be sent")
+	}
 
 	// Initialize handlers
 	maintenanceHandler := handlers.NewMaintenanceHandler(maintenanceService, logger)
@@ -55,17 +68,12 @@ func main() {
 
 	// System routes
 	router.GET("/health", maintenanceHandler.HealthCheck)
-	router.GET("/metrics", maintenanceHandler.GetMetrics)
 
 	// Swagger documentation routes
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Start server
-	port := viper.GetString("server.port")
-	if port == "" {
-		port = "8080"
-	}
-
-	logger.Infof("Starting SAP Adaptor server on port %s", port)
-	log.Fatal(router.Run(":" + port))
+	address := cfg.Server.Host + ":" + cfg.Server.Port
+	logger.Infof("Starting SAP Adaptor server on %s", address)
+	log.Fatal(router.Run(address))
 }

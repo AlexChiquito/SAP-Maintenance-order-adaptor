@@ -42,69 +42,29 @@ func TestMaintenanceService_ProcessMaintenanceOrderEvent(t *testing.T) {
 		case "/API_MAINTENANCE_ORDER/A_MaintenanceOrder":
 			// Create order
 			orderID = "400000789"
-			resp := models.SAPOrderResponse{
-				D: struct {
-					MaintenanceOrder           string `json:"MaintenanceOrder"`
-					MaintenanceOrderType       string `json:"MaintenanceOrderType"`
-					Description                string `json:"Description"`
-					Equipment                  string `json:"Equipment"`
-					Plant                      string `json:"Plant"`
-					OrderStatus                string `json:"OrderStatus"`
-					MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
-					MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
-					MaintenanceNotification    string `json:"MaintenanceNotification"`
-					Metadata                   struct {
-						ID   string `json:"id"`
-						URI  string `json:"uri"`
-						Type string `json:"type"`
-					} `json:"__metadata"`
-					ToMaintenanceOrderOperation struct {
-						Results []models.SAPOrderOperationResponse `json:"results"`
-					} `json:"to_MaintenanceOrderOperation"`
-				}{
-					MaintenanceOrder:        orderID,
-					MaintenanceOrderType:    "PM01",
-					Description:             "Test order",
-					Equipment:               "10000045",
-					Plant:                   "1000",
-					OrderStatus:             "CRTD",
-					MaintenanceNotification: notificationID,
-				},
-			}
+			resp := models.SAPOrderResponse{}
+			resp.D.MaintenanceOrder = orderID
+			resp.D.MaintenanceOrderType = "PM01"
+			resp.D.Description = "Test order"
+			resp.D.Equipment = "10000045"
+			resp.D.Plant = "1000"
+			resp.D.OrderStatus = "CRTD"
+			resp.D.MaintenanceNotification = notificationID
+			resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
 			w.WriteHeader(http.StatusCreated)
 			json.NewEncoder(w).Encode(resp)
 
 		default:
 			// Get order (verification)
-			resp := models.SAPOrderResponse{
-				D: struct {
-					MaintenanceOrder           string `json:"MaintenanceOrder"`
-					MaintenanceOrderType       string `json:"MaintenanceOrderType"`
-					Description                string `json:"Description"`
-					Equipment                  string `json:"Equipment"`
-					Plant                      string `json:"Plant"`
-					OrderStatus                string `json:"OrderStatus"`
-					MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
-					MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
-					MaintenanceNotification    string `json:"MaintenanceNotification"`
-					Metadata                   struct {
-						ID   string `json:"id"`
-						URI  string `json:"uri"`
-						Type string `json:"type"`
-					} `json:"__metadata"`
-					ToMaintenanceOrderOperation struct {
-						Results []models.SAPOrderOperationResponse `json:"results"`
-					} `json:"to_MaintenanceOrderOperation"`
-				}{
-					MaintenanceOrder:        orderID,
-					MaintenanceOrderType:    "PM01",
-					Description:             "Test order",
-					Equipment:               "10000045",
-					Plant:                   "1000",
-					OrderStatus:             "CRTD",
-					MaintenanceNotification: notificationID,
-				},
-			}
+			resp := models.SAPOrderResponse{}
+			resp.D.MaintenanceOrder = orderID
+			resp.D.MaintenanceOrderType = "PM01"
+			resp.D.Description = "Test order"
+			resp.D.Equipment = "10000045"
+			resp.D.Plant = "1000"
+			resp.D.OrderStatus = "CRTD"
+			resp.D.MaintenanceNotification = notificationID
+			resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(resp)
 		}
@@ -149,11 +109,11 @@ func TestMaintenanceService_ProcessMaintenanceOrderEvent(t *testing.T) {
 	}
 
 	// Verify response
-	if resp.OrderID != orderID {
-		t.Errorf("Expected order ID %s, got %s", orderID, resp.OrderID)
+	if resp.MaintenanceOrder != orderID {
+		t.Errorf("Expected order ID %s, got %s", orderID, resp.MaintenanceOrder)
 	}
-	if resp.NotificationID != notificationID {
-		t.Errorf("Expected notification ID %s, got %s", notificationID, resp.NotificationID)
+	if resp.MaintenanceNotification != notificationID {
+		t.Errorf("Expected notification ID %s, got %s", notificationID, resp.MaintenanceNotification)
 	}
 	if resp.Status != "CRTD" {
 		t.Errorf("Expected status CRTD, got %s", resp.Status)
@@ -166,35 +126,14 @@ func TestMaintenanceService_ProcessMaintenanceOrderEvent(t *testing.T) {
 func TestMaintenanceService_GetMaintenanceOrderStatus(t *testing.T) {
 	// Create a mock SAP server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		resp := models.SAPOrderResponse{
-			D: struct {
-				MaintenanceOrder           string `json:"MaintenanceOrder"`
-				MaintenanceOrderType       string `json:"MaintenanceOrderType"`
-				Description                string `json:"Description"`
-				Equipment                  string `json:"Equipment"`
-				Plant                      string `json:"Plant"`
-				OrderStatus                string `json:"OrderStatus"`
-				MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
-				MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
-				MaintenanceNotification    string `json:"MaintenanceNotification"`
-				Metadata                   struct {
-					ID   string `json:"id"`
-					URI  string `json:"uri"`
-					Type string `json:"type"`
-				} `json:"__metadata"`
-				ToMaintenanceOrderOperation struct {
-					Results []models.SAPOrderOperationResponse `json:"results"`
-				} `json:"to_MaintenanceOrderOperation"`
-			}{
-				MaintenanceOrder:        "400000789",
-				MaintenanceOrderType:    "PM01",
-				Description:             "Test order",
-				Equipment:               "10000045",
-				Plant:                   "1000",
-				OrderStatus:             "TECO",
-				MaintenanceNotification: "200000123",
-			},
-		}
+		resp := models.SAPOrderResponse{}
+		resp.D.MaintenanceOrder = "400000789"
+		resp.D.MaintenanceOrderType = "PM01"
+		resp.D.Description = "Test order"
+		resp.D.Equipment = "10000045"
+		resp.D.Plant = "1000"
+		resp.D.OrderStatus = "TECO"
+		resp.D.MaintenanceNotification = "200000123"
 		resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{
 			{
 				MaintenanceOrder:          "400000789",
@@ -226,8 +165,8 @@ func TestMaintenanceService_GetMaintenanceOrderStatus(t *testing.T) {
 	}
 
 	// Verify status
-	if status.OrderID != "400000789" {
-		t.Errorf("Expected order ID 400000789, got %s", status.OrderID)
+	if status.MaintenanceOrder != "400000789" {
+		t.Errorf("Expected order ID 400000789, got %s", status.MaintenanceOrder)
 	}
 	if status.Status != "TECO" {
 		t.Errorf("Expected status TECO, got %s", status.Status)

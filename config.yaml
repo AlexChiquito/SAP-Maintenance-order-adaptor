@@ -18,6 +18,6 @@ sap:
 
 # Digital Twin Configuration
 digitalTwin:
-  baseUrl: "https://your-digital-twin-system.com/api"
+  baseUrl: "http://localhost:8082"
   apiKey: "your-digital-twin-api-key"
   timeout: 30

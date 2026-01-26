@@ -1,17 +1,19 @@
 openapi: 3.0.0
 info:
-  title: SAP Maintenance Order API (Simplified)
+  title: SAP Maintenance Order API (Subset)
   version: 1.0.0
   description: |
-    Simplified SAP Maintenance Order API specification.
+    SAP Maintenance Order API specification subset.
     Based on SAP API_MAINTENANCEORDER_0002 v2.0.0.
     
-    This specification covers only the endpoints used by the SAP Adaptor:
+    This specification documents only the following endpoints:
     - Create maintenance notifications
     - Create maintenance orders with operations
-    - Retrieve maintenance order status
+    - Retrieve maintenance order status with operations, components, and object list
     
-    Note: This is a subset of the full SAP API, simplified for clarity.
+    - This is a SUBSET of the full SAP API (fewer fields, not all endpoints)
+    - Structure and behavior match official SAP API exactly
+    - All field names are official SAP field names    
 
 servers:
   - url: http://localhost:8081
@@ -87,7 +89,8 @@ paths:
   /API_MAINTENANCE_ORDER/A_MaintenanceOrder('{orderId}'):
     get:
       summary: Get maintenance order by ID
-      description: Retrieves a maintenance order with its operations
+      description: |
+        Retrieves a maintenance order with its related data.
       operationId: getOrder
       parameters:
         - name: orderId
@@ -97,6 +100,21 @@ paths:
           schema:
             type: string
             maxLength: 12
+        - name: $expand
+          in: query
+          required: false
+          description: |
+            Expand navigation properties.
+            Examples:
+            - to_MaintenanceOrderOperation
+            - to_MaintOrderObjectListItem
+            - to_MaintenanceOrderOperation($expand=to_MaintOrderOpComponent_2)
+            
+            To get all data:
+            to_MaintenanceOrderOperation($expand=to_MaintOrderOpComponent_2),to_MaintOrderObjectListItem
+          schema:
+            type: string
+            example: "to_MaintenanceOrderOperation($expand=to_MaintOrderOpComponent_2),to_MaintOrderObjectListItem"
       responses:
         '200':
           description: Order retrieved successfully
@@ -373,6 +391,15 @@ components:
                   type: array
                   items:
                     $ref: '#/components/schemas/OperationResponse'
+            to_MaintOrderObjectListItem:
+              type: object
+              description: |
+                Navigation to object list items (equipment installed/replaced).
+              properties:
+                results:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ObjectListItemResponse'
 
     OperationResponse:
       type: object
@@ -443,6 +470,181 @@ components:
               type: string
             type:
               type: string
+        to_MaintOrderOpComponent_2:
+          type: object
+          description: |
+            Navigation to operation components (materials/parts consumed).
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/ComponentResponse'
+
+    ComponentResponse:
+      type: object
+      description: |
+        Component (material/part) consumed in an operation.
+      properties:
+        MaintenanceOrder:
+          type: string
+          maxLength: 12
+          description: Order number
+          example: "400000123"
+        MaintenanceOrderOperation:
+          type: string
+          maxLength: 4
+          description: Operation number
+          example: "0010"
+        MaintenanceOrderSubOperation:
+          type: string
+          maxLength: 4
+          description: Suboperation number
+          example: "0000"
+        MaintenanceOrderComponent:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: BOM item number
+          example: "0001"
+        Product:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Material number (SAP field name)
+          example: "PUMP-SEAL-X200"
+        MaintOrdOperationComponentText:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Component description
+          example: "High-performance pump seal"
+        MaintOrdOpCompRequiredQuantity:
+          type: string
+          nullable: true
+          description: Required quantity (as decimal string)
+          example: "1.000"
+        BaseUnit:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: Unit of measure
+          example: "EA"
+        Plant:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Plant
+          example: "1000"
+        StorageLocation:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Storage location
+          example: "0001"
+        MaintComponentItemCategory:
+          type: string
+          maxLength: 1
+          nullable: true
+          description: Item category (bill of material)
+          example: "L"
+        GoodsMovementType:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: |
+            Movement type (Inventory Management):
+            - 261: Goods issue for order
+            - 262: Goods receipt for order reversal
+          example: "261"
+        Reservation:
+          type: string
+          maxLength: 10
+          nullable: true
+          description: Reservation number
+          example: "0000123456"
+        ReservationItem:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Reservation item number
+          example: "0001"
+        ReservationIsFinallyIssued:
+          type: boolean
+          nullable: true
+          description: Final issue indicator
+        __metadata:
+          type: object
+          description: OData metadata
+          properties:
+            id:
+              type: string
+            uri:
+              type: string
+            type:
+              type: string
+
+    ObjectListItemResponse:
+      type: object
+      description: |
+        Object list item (equipment installed or involved in order).
+      properties:
+        MaintenanceOrder:
+          type: string
+          maxLength: 12
+          description: Order number
+          example: "400000123"
+        MaintenanceObjectListItem:
+          type: integer
+          description: Item number in object list
+          example: 1
+        Equipment:
+          type: string
+          maxLength: 18
+          nullable: true
+          description: Equipment number
+          example: "PUMP-MAIN-12345-NEW"
+        Material:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Material number
+          example: "PUMP-MODEL-X200"
+        SerialNumber:
+          type: string
+          maxLength: 18
+          nullable: true
+          description: Serial number
+          example: "SN-2026-90062"
+        Assembly:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Assembly
+          example: "ASSEMBLY-001"
+        FunctionalLocation:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Functional location
+          example: "FL-PRODUCTION-LINE-A"
+        MaintObjectListItemSequence:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Item sequence
+          example: "0001"
+        __metadata:
+          type: object
+          description: OData metadata
+          properties:
+            id:
+              type: string
+              example: ".../A_MaintOrderObjectListItem(MaintenanceOrder='400000123',MaintenanceObjectListItem=1)"
+            uri:
+              type: string
+            type:
+              type: string
+              example: "API_MAINTENANCE_ORDER.MaintOrderObjectListItemType"
 
     ErrorResponse:
       type: object

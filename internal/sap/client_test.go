@@ -100,35 +100,15 @@ func TestClient_CreateOrder(t *testing.T) {
 		}
 
 		// Create response
-		resp := models.SAPOrderResponse{
-			D: struct {
-				MaintenanceOrder           string `json:"MaintenanceOrder"`
-				MaintenanceOrderType       string `json:"MaintenanceOrderType"`
-				Description                string `json:"Description"`
-				Equipment                  string `json:"Equipment"`
-				Plant                      string `json:"Plant"`
-				OrderStatus                string `json:"OrderStatus"`
-				MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
-				MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
-				MaintenanceNotification    string `json:"MaintenanceNotification"`
-				Metadata                   struct {
-					ID   string `json:"id"`
-					URI  string `json:"uri"`
-					Type string `json:"type"`
-				} `json:"__metadata"`
-				ToMaintenanceOrderOperation struct {
-					Results []models.SAPOrderOperationResponse `json:"results"`
-				} `json:"to_MaintenanceOrderOperation"`
-			}{
-				MaintenanceOrder:        "400000123",
-				MaintenanceOrderType:    req.MaintenanceOrderType,
-				Description:             req.Description,
-				Equipment:               req.Equipment,
-				Plant:                   req.Plant,
-				OrderStatus:             "CRTD",
-				MaintenanceNotification: req.MaintenanceNotification,
-			},
-		}
+		resp := models.SAPOrderResponse{}
+		resp.D.MaintenanceOrder = "400000123"
+		resp.D.MaintenanceOrderType = req.MaintenanceOrderType
+		resp.D.Description = req.Description
+		resp.D.Equipment = req.Equipment
+		resp.D.Plant = req.Plant
+		resp.D.OrderStatus = "CRTD"
+		resp.D.MaintenanceNotification = req.MaintenanceNotification
+		resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
 
 		w.WriteHeader(http.StatusCreated)
 		json.NewEncoder(w).Encode(resp)
@@ -175,36 +155,15 @@ func TestClient_GetOrder(t *testing.T) {
 		}
 
 		// Create response
-		resp := models.SAPOrderResponse{
-			D: struct {
-				MaintenanceOrder           string `json:"MaintenanceOrder"`
-				MaintenanceOrderType       string `json:"MaintenanceOrderType"`
-				Description                string `json:"Description"`
-				Equipment                  string `json:"Equipment"`
-				Plant                      string `json:"Plant"`
-				OrderStatus                string `json:"OrderStatus"`
-				MaintOrdBasicStartDateTime string `json:"MaintOrdBasicStartDateTime"`
-				MaintOrdBasicEndDateTime   string `json:"MaintOrdBasicEndDateTime"`
-				MaintenanceNotification    string `json:"MaintenanceNotification"`
-				Metadata                   struct {
-					ID   string `json:"id"`
-					URI  string `json:"uri"`
-					Type string `json:"type"`
-				} `json:"__metadata"`
-				ToMaintenanceOrderOperation struct {
-					Results []models.SAPOrderOperationResponse `json:"results"`
-				} `json:"to_MaintenanceOrderOperation"`
-			}{
-				MaintenanceOrder:        "400000123",
-				MaintenanceOrderType:    "PM01",
-				Description:             "Test order",
-				Equipment:               "10000045",
-				Plant:                   "1000",
-				OrderStatus:             "TECO",
-				MaintenanceNotification: "200000123",
-			},
-		}
-
+	resp := models.SAPOrderResponse{}
+	resp.D.MaintenanceOrder = "400000123"
+	resp.D.MaintenanceOrderType = "PM01"
+	resp.D.Description = "Test order"
+	resp.D.Equipment = "10000045"
+	resp.D.Plant = "1000"
+	resp.D.OrderStatus = "TECO"
+	resp.D.MaintenanceNotification = "200000123"
+	resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(resp)
 	}))

@@ -26,7 +26,7 @@ services:
     environment:
       - SAP_ADAPTOR_SERVER_PORT=8080
       - SAP_ADAPTOR_SERVER_HOST=0.0.0.0
-      # Point to simulator by default (change to real SAP URL for production)
+      
       - SAP_ADAPTOR_SAP_BASE_URL=${SAP_BASE_URL:-http://sap-simulator:8081}
       - SAP_ADAPTOR_SAP_USERNAME=${SAP_USERNAME}
       - SAP_ADAPTOR_SAP_PASSWORD=${SAP_PASSWORD}
@@ -34,7 +34,8 @@ services:
       - SAP_ADAPTOR_SAP_CLIENT_SECRET=${SAP_CLIENT_SECRET}
       - SAP_ADAPTOR_SAP_TOKEN_URL=${SAP_TOKEN_URL}
       - SAP_ADAPTOR_SAP_TIMEOUT=30
-      - SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=${DIGITAL_TWIN_BASE_URL}
+      # Use host.docker.internal to reach services on host machine from container
+      - SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=${DIGITAL_TWIN_BASE_URL:-http://host.docker.internal:8082}
       - SAP_ADAPTOR_DIGITAL_TWIN_API_KEY=${DIGITAL_TWIN_API_KEY}
       - SAP_ADAPTOR_DIGITAL_TWIN_TIMEOUT=30
       - SAP_ADAPTOR_LOG_LEVEL=info
