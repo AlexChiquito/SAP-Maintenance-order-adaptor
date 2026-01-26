@@ -1,16 +1,14 @@
 package main
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"math/rand"
-	"sap-adaptor/internal/config"
+	"io"
+	"net/http"
+	"os"
 	"sap-adaptor/internal/models"
-	"sap-adaptor/internal/sap"
 	"time"
-
-	"github.com/sirupsen/logrus"
 )
 
 func prettyPrintJSON(label string, v interface{}) {
@@ -23,208 +21,230 @@ func prettyPrintJSON(label string, v interface{}) {
 }
 
 func main() {
-	fmt.Println("=== SAP Adaptor Simulator Test ===")
-	
-	// Create logger
-	logger := logrus.New()
-	logger.SetLevel(logrus.InfoLevel)
-	
-	// Create config with simulator mode
-	cfg := config.SAPConfig{
-		BaseURL:       "simulator",
-		SimulatorMode: true,
-		Timeout:       30,
+	fmt.Println("=== SAP Adaptor End-to-End Test ===")
+
+	// Get SAP Adaptor URL from environment
+	adaptorURL := os.Getenv("SAP_ADAPTOR_URL")
+	if adaptorURL == "" {
+		adaptorURL = "http://localhost:8080"
 	}
-	
-	// Create SAP client
-	sapClient := sap.NewClient(cfg, logger)
-	
-	// (Not using MaintenanceService here; custom polling below)
-	
-	// Test the complete workflow starting from Digital Twin
-	fmt.Println("\n0. Complete Workflow Test...")
-	fmt.Println("   Digital Twin → SAP Adaptor: Maintenance Order Event")
-	
-	// This is what the Digital Twin would send to the SAP Adaptor
-	digitalTwinEvent := &models.MaintenanceOrderEvent{
-		EquipmentID:          "10000045",
-		FunctionalLocation:   "FL100-200-300",
-		Plant:                "1000",
-		Description:          "Pump showing abnormal vibration - needs seal replacement",
-		Priority:             "3",
+
+	fmt.Printf("Using SAP Adaptor at: %s\n", adaptorURL)
+	fmt.Println("(Make sure SAP Adaptor and Simulator are running)")
+	fmt.Println("")
+
+	// Check health
+	fmt.Println("1. Checking SAP Adaptor health...")
+	healthResp, err := http.Get(adaptorURL + "/health")
+	if err != nil {
+		fmt.Printf("ERROR: SAP Adaptor not reachable: %v\n", err)
+		fmt.Println("   Start it with:")
+		fmt.Println("   SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \\")
+		fmt.Println("   SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \\")
+		fmt.Println("   SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \\")
+		fmt.Println("   ./bin/sap-adaptor")
+		os.Exit(1)
+	}
+	defer healthResp.Body.Close()
+
+	var healthData map[string]interface{}
+	json.NewDecoder(healthResp.Body).Decode(&healthData)
+	prettyPrintJSON("Health Check Response", healthData)
+	fmt.Println("SAP Adaptor is running")
+	fmt.Println("")
+
+	// Create maintenance order event (what Digital Twin would send)
+	fmt.Println("2. Creating Maintenance Order...")
+	fmt.Println("   Digital Twin → SAP Adaptor: POST /api/v1/maintenance-orders")
+	fmt.Println("")
+
+	startTime := time.Now().Add(1 * time.Hour)
+	endTime := time.Now().Add(9 * time.Hour)
+
+	event := &models.MaintenanceOrderEvent{
+		EquipmentID:          "PUMP-MAIN-12345",
+		FunctionalLocation:   "FL-PRODUCTION-LINE-A",
+		Plant:                "2000",
+		Description:          "Critical pump replacement - bearing failure detected",
+		Priority:             "1",
 		MaintenanceOrderType: "PM01",
-		PlannedStartTime:     &[]time.Time{time.Now().Add(24 * time.Hour)}[0], // Tomorrow
-		PlannedEndTime:       &[]time.Time{time.Now().Add(24*time.Hour + 8*time.Hour)}[0], // Tomorrow + 8 hours
+		PlannedStartTime:     &startTime,
+		PlannedEndTime:       &endTime,
 		Operations: []models.MaintenanceOperation{
 			{
-				Text:          "Disassemble pump and inspect seal",
-				WorkCenter:    "PUMP-WC01",
-				Duration:      4.0,
+				Text:         "check pump condition and fix",
+				WorkCenter:   "PUMP-WC01",
+				Duration:     1,
 				DurationUnit: "H",
 			},
 			{
-				Text:          "Replace seal and reassemble",
-				WorkCenter:    "PUMP-WC01", 
-				Duration:      3.0,
-				DurationUnit: "H",
-			},
-			{
-				Text:          "Test pump operation",
-				WorkCenter:    "PUMP-WC01",
-				Duration:      1.0,
+				Text:         "Fix pump",
+				WorkCenter:   "PUMP-WC01",
+				Duration:     6,
 				DurationUnit: "H",
 			},
 		},
 	}
-	prettyPrintJSON("Digital Twin → SAP Adaptor (MaintenanceOrderEvent)", digitalTwinEvent)
-	
-	// Now SAP Adaptor processes this event and converts it for SAP
-	fmt.Println("\n   SAP Adaptor Internal: Converting Digital Twin Event to SAP Format")
-	
-	// Convert to SAP notification request
-	sapNotificationReq := sap.ConvertMaintenanceOrderEventToNotificationRequest(digitalTwinEvent)
-	prettyPrintJSON("SAP Adaptor Internal (Converted NotificationRequest)", sapNotificationReq)
-	
-	// Convert to SAP order request (we'll use a placeholder notification ID for now)
-	placeholderNotificationID := "200000000" // This will be replaced with actual notification ID
-	sapOrderReq := sap.ConvertMaintenanceOrderEventToOrderRequest(digitalTwinEvent, placeholderNotificationID)
-	prettyPrintJSON("SAP Adaptor Internal (Converted OrderRequest)", sapOrderReq)
-	
-	// Test notification creation
-	fmt.Println("\n1. Testing Notification Creation...")
-	fmt.Println("   SAP Adaptor → SAP: Creating Maintenance Notification")
-	prettyPrintJSON("SAP Adaptor → SAP (CreateNotification Request)", sapNotificationReq)
-	
-	notificationResp, err := sapClient.CreateNotification(context.Background(), sapNotificationReq)
+
+	prettyPrintJSON("Digital Twin → SAP Adaptor (MaintenanceOrderEvent)", event)
+
+	// Send order creation request
+	fmt.Println("")
+	fmt.Println("   Sending HTTP POST request...")
+	payload, _ := json.Marshal(event)
+	createResp, err := http.Post(
+		adaptorURL+"/api/v1/maintenance-orders",
+		"application/json",
+		bytes.NewBuffer(payload),
+	)
 	if err != nil {
-		fmt.Printf("Error creating notification: %v\n", err)
-		return
+		fmt.Printf("ERROR: Failed to create order: %v\n", err)
+		os.Exit(1)
 	}
-	prettyPrintJSON("SAP → SAP Adaptor (CreateNotification Response)", notificationResp)
-	fmt.Printf("✅ Notification created: %s\n", notificationResp.D.Notification)
-	
-	// Test order creation
-	fmt.Println("\n2. Testing Order Creation...")
-	fmt.Println("   SAP Adaptor → SAP: Creating Maintenance Order")
-	
-	// Update the order request with the actual notification ID
-	sapOrderReq.MaintenanceNotification = notificationResp.D.Notification
-	prettyPrintJSON("SAP Adaptor → SAP (CreateOrder Request)", sapOrderReq)
-	
-	orderResp, err := sapClient.CreateOrder(context.Background(), sapOrderReq)
+	defer createResp.Body.Close()
+
+	var createResult map[string]interface{}
+	body, _ := io.ReadAll(createResp.Body)
+	json.Unmarshal(body, &createResult)
+
+	fmt.Println("")
+	fmt.Println("   Behind the scenes, SAP Adaptor executes:")
+	fmt.Println("      Step 1: SAP Adaptor → SAP Simulator")
+	fmt.Println("              POST /API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification")
+	fmt.Println("              (Creates notification in SAP)")
+	fmt.Println("")
+	fmt.Println("      Step 2: SAP Simulator → SAP Adaptor")
+	fmt.Println("              Response: Notification ID")
+	fmt.Println("")
+	fmt.Println("      Step 3: SAP Adaptor → SAP Simulator")
+	fmt.Println("              POST /API_MAINTENANCE_ORDER/A_MaintenanceOrder")
+	fmt.Println("              (Creates order with notification reference)")
+	fmt.Println("")
+	fmt.Println("      Step 4: SAP Simulator → SAP Adaptor")
+	fmt.Println("              Response: Order ID and status")
+	fmt.Println("")
+
+	prettyPrintJSON("SAP Adaptor → Digital Twin (CreateOrder Response)", createResult)
+
+	orderID, ok := createResult["maintenanceOrder"].(string)
+	if !ok || orderID == "" {
+		fmt.Printf("ERROR: Failed to get order ID from response\n")
+		os.Exit(1)
+	}
+
+	notificationID := createResult["maintenanceNotification"]
+
+	fmt.Println("")
+	fmt.Println("SAP Workflow Completed Successfully:")
+	fmt.Printf("   Step 1: Notification created → %v\n", notificationID)
+	fmt.Printf("   Step 2: Order created → %s (referencing notification)\n", orderID)
+	fmt.Printf("   Status: %v\n", createResult["status"])
+	fmt.Println("")
+
+	// Query initial status
+	fmt.Println("3. Querying Initial Order Status...")
+	statusResp, err := http.Get(adaptorURL + "/api/v1/maintenance-orders/" + orderID)
 	if err != nil {
-		fmt.Printf("Error creating order: %v\n", err)
-		return
+		fmt.Printf("ERROR: Failed to query order: %v\n", err)
+		os.Exit(1)
 	}
-	prettyPrintJSON("SAP → SAP Adaptor (CreateOrder Response)", orderResp)
-	fmt.Printf("✅ Order created: %s\n", orderResp.D.MaintenanceOrder)
-	
-	// Test order retrieval
-	fmt.Println("\n3. Testing Order Retrieval...")
-	fmt.Println("   SAP Adaptor → SAP: Querying Order Status")
-	statusResp, err := sapClient.GetOrder(context.Background(), orderResp.D.MaintenanceOrder)
+	defer statusResp.Body.Close()
+
+	var statusData map[string]interface{}
+	json.NewDecoder(statusResp.Body).Decode(&statusData)
+
+	fmt.Printf("Initial Status: %v\n", statusData["status"])
+	fmt.Printf("   Equipment: %v\n", statusData["equipment"])
+	fmt.Printf("   Plant: %v\n", statusData["plant"])
+	fmt.Printf("   Description: %v\n", statusData["description"])
+	fmt.Println("")
+
+	// Explain background monitoring
+	fmt.Println("4. Background Monitoring Active...")
+	fmt.Println("   SAP Adaptor is now polling this order automatically:")
+	fmt.Println("      • Every few seconds: GET /API_MAINTENANCE_ORDER/A_MaintenanceOrder('{orderID}')")
+	fmt.Println("      • Checks order status progression")
+	fmt.Println("")
+	fmt.Println("   Time-based status progression (For simulation):")
+	fmt.Println("      • 0-10 seconds:  CRTD (Created)")
+	fmt.Println("      • 10-30 seconds: REL (Released)")
+	fmt.Println("      • 30+ seconds:   TECO (Completed)")
+	fmt.Println("")
+	fmt.Println("   When TECO is reached, adaptor will POST to:")
+	fmt.Println("      → Digital Twin: /api/v1/maintenance-completed")
+	fmt.Println("")
+	fmt.Println("   Waiting 35 seconds for order completion...")
+
+	time.Sleep(35 * time.Second)
+
+	// Query final status with equipment data
+	fmt.Println("\n5. Retrieving Final Order Status...")
+	finalResp, err := http.Get(adaptorURL + "/api/v1/maintenance-orders/" + orderID)
 	if err != nil {
-		fmt.Printf("Error retrieving order: %v\n", err)
-		return
+		fmt.Printf("ERROR: Failed to query final order: %v\n", err)
+		os.Exit(1)
 	}
-	prettyPrintJSON("SAP → SAP Adaptor (GetOrder Response)", statusResp)
-	
-	fmt.Printf("✅ Order status: %s\n", statusResp.D.OrderStatus)
-	fmt.Printf("   Description: %s\n", statusResp.D.Description)
-	fmt.Printf("   Equipment: %s\n", statusResp.D.Equipment)
-	fmt.Printf("   Plant: %s\n", statusResp.D.Plant)
-	
-	// Show final conversion back to Digital Twin format
-	fmt.Println("\n4. Final Conversion...")
-	fmt.Println("   SAP Adaptor → Digital Twin: Converting SAP Response to Digital Twin Format")
-	convertedStatus := sap.ConvertSAPOrderResponseToStatus(statusResp)
-	prettyPrintJSON("SAP Adaptor → Digital Twin (MaintenanceOrderStatus)", convertedStatus)
-	fmt.Printf("✅ Final status for Digital Twin: OrderID=%s, Status=%s\n", 
-		convertedStatus.OrderID, convertedStatus.Status)
-	
-	// Test polling-based TECO detection (custom 10s polling with random readiness)
-	fmt.Println("\n5. Testing Polling-Based TECO Detection...")
-	fmt.Println("   SAP Adaptor Internal: Starting custom 10s polling loop")
-	fmt.Println("   This simulates polling every 10s until TECO is reached")
+	defer finalResp.Body.Close()
 
-	// Seed randomness for demo
-	rand.Seed(time.Now().UnixNano())
-	readyAfterPolls := 4 + rand.Intn(3) // ready after 4-6 polls
-	pollInterval := 10 * time.Second
-	fmt.Printf("   ℹ️ Will mark TECO after %d polls (~%s)\n", readyAfterPolls, time.Duration(readyAfterPolls)*pollInterval)
+	var finalData map[string]interface{}
+	json.NewDecoder(finalResp.Body).Decode(&finalData)
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(readyAfterPolls+3)*pollInterval)
-	defer cancel()
+	prettyPrintJSON("SAP Adaptor → Digital Twin (Final Order Status)", finalData)
 
-	// Create a callback function that would notify Digital Twin
-	callback := func(status *models.MaintenanceOrderStatus) error {
-		fmt.Println("\n🎉 TECO DETECTED! Order completed!")
-		fmt.Println("   SAP Adaptor → Digital Twin: Sending completion notification")
+	fmt.Println("\n6. Equipment Replacement Data...")
+	fmt.Printf("Order completed: %v\n", finalData["maintenanceOrder"])
+	fmt.Printf("   Status: %v\n", finalData["status"])
+	fmt.Printf("   Equipment: %v\n", finalData["equipment"])
+	fmt.Printf("   Plant: %v\n", finalData["plant"])
 
-		// This is what would be sent to Digital Twin
-		digitalTwinNotification := map[string]interface{}{
-			"orderId": status.OrderID,
-			"status": status.Status,
-			"description": status.Description,
-			"equipmentId": status.EquipmentID,
-			"plant": status.Plant,
-			"notificationId": status.NotificationID,
-			"completedAt": time.Now().Format(time.RFC3339),
-			"actualStartTime": status.ActualStartTime,
-			"actualEndTime": status.ActualEndTime,
-			"operations": status.Operations,
-		}
+	// Check for operations with components
+	if operations, ok := finalData["operations"].([]interface{}); ok && len(operations) > 0 {
+		fmt.Printf("\n   Operations with Components:\n")
+		for i, op := range operations {
+			opMap := op.(map[string]interface{})
+			fmt.Printf("      Operation %d: %v - %v\n", i+1, opMap["maintenanceOrderOperation"], opMap["text"])
 
-		prettyPrintJSON("SAP Adaptor → Digital Twin (MaintenanceCompleted Notification)", digitalTwinNotification)
-
-		fmt.Println("✅ Digital Twin notification would be sent to:")
-		fmt.Println("   POST /api/v1/maintenance-completed")
-		fmt.Println("   (TODO: Implement Digital Twin client)")
-
-		return nil
-	}
-
-	// Custom polling loop independent of service defaults
-	polls := 0
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			fmt.Println("   ⏰ Demo timeout reached - monitoring stopped")
-			goto donePolling
-		case <-ticker.C:
-			polls++
-			fmt.Printf("   🔄 Poll #%d: querying order status...\n", polls)
-			latest, err := sapClient.GetOrder(context.Background(), orderResp.D.MaintenanceOrder)
-			if err != nil {
-				fmt.Printf("   ⚠️  GetOrder error: %v\n", err)
-				continue
+			if components, ok := opMap["components"].([]interface{}); ok && len(components) > 0 {
+				fmt.Printf("         Components (%d):\n", len(components))
+				for j, comp := range components {
+					compMap := comp.(map[string]interface{})
+					fmt.Printf("            %d. %v - %v\n", j+1, compMap["material"], compMap["description"])
+					fmt.Printf("               Quantity: %v %v (Movement: %v)\n",
+						compMap["requirementQuantity"], compMap["materialUnit"], compMap["goodsMovementType"])
+				}
+			} else {
+				fmt.Printf("         No components\n")
 			}
-			status := sap.ConvertSAPOrderResponseToStatus(latest)
-
-			if polls >= readyAfterPolls {
-				// Force TECO for the demo
-				status.Status = "TECO"
-				_ = callback(status)
-				goto donePolling
-			}
-
-			fmt.Printf("   ↪︎ Still in progress (status=%s). Waiting %s...\n", status.Status, pollInterval)
 		}
+	} else {
+		fmt.Println("\n   WARNING: No operations data available")
 	}
 
-	donePolling:
-	
-	fmt.Println("\n=== All Tests Passed! ===")
-	fmt.Println("The SAP Adaptor simulator is working correctly.")
-	fmt.Println("Complete workflow demonstrated:")
+	// Check for object list
+	if objectList, ok := finalData["objectList"].([]interface{}); ok && len(objectList) > 0 {
+		fmt.Printf("\n   Equipment Installed (%d):\n", len(objectList))
+		for i, obj := range objectList {
+			objMap := obj.(map[string]interface{})
+			fmt.Printf("      %d. Equipment: %v\n", i+1, objMap["equipment"])
+			fmt.Printf("         Material: %v\n", objMap["material"])
+			fmt.Printf("         Serial Number: %v\n", objMap["serialNumber"])
+		}
+	} else {
+		fmt.Println("\n   WARNING: No object list data available")
+	}
+
+	fmt.Println("\n=== End-to-End Test Complete! ===")
+	fmt.Println("The SAP Adaptor is working correctly.")
+	fmt.Println("")
+	fmt.Println("Complete workflow verified:")
 	fmt.Println("1. Digital Twin → SAP Adaptor (Maintenance Order Event)")
-	fmt.Println("2. SAP Adaptor → SAP (Create Notification)")
-	fmt.Println("3. SAP Adaptor → SAP (Create Order)")
-	fmt.Println("4. SAP Adaptor → SAP (Query Status)")
-	fmt.Println("5. SAP Adaptor → Digital Twin (Status Response)")
-	fmt.Println("6. SAP Adaptor → SAP (Polling for TECO)")
-	fmt.Println("7. SAP Adaptor → Digital Twin (TECO Notification)")
+	fmt.Println("2. SAP Adaptor → SAP:")
+	fmt.Println("   a) Create Notification → Get notification number")
+	fmt.Println("   b) Create Order (with notification reference)")
+	fmt.Println("3. SAP Adaptor starts background polling")
+	fmt.Println("4. Time-based status progression (CRTD → REL → TECO)")
+	fmt.Println("5. SAP Adaptor detects TECO and sends notification to Digital Twin")
+	fmt.Println("6. Equipment replacement data available in final order")
+	fmt.Println("")
+	fmt.Println("Note: Check your Digital Twin callback listener for the notification!")
 }

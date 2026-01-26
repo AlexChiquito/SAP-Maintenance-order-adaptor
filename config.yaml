@@ -7,7 +7,7 @@ server:
 
 # SAP Configuration
 sap:
-  baseUrl: "simulator"  # Set to "simulator" for demo mode, or actual SAP URL for production
+  baseUrl: "http://localhost:8081"  # Simulator URL for local dev, or actual SAP URL for production
   username: ""  # Not required in simulator mode
   password: ""  # Not required in simulator mode
   clientId: ""  # Not required in simulator mode
@@ -18,6 +18,6 @@ sap:
 
 # Digital Twin Configuration
 digitalTwin:
-  baseUrl: "https://your-digital-twin-system.com/api"
+  baseUrl: "http://localhost:8082"
   apiKey: "your-digital-twin-api-key"
   timeout: 30

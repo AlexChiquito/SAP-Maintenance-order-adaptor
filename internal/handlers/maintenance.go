@@ -76,9 +76,9 @@ func (h *MaintenanceHandler) CreateMaintenanceOrder(c *gin.Context) {
 	}
 
 	h.logger.WithFields(logrus.Fields{
-		"orderId":        response.OrderID,
-		"notificationId": response.NotificationID,
-		"status":         response.Status,
+		"maintenanceOrder":       response.MaintenanceOrder,
+		"maintenanceNotification": response.MaintenanceNotification,
+		"status":                  response.Status,
 	}).Info("Maintenance order created successfully")
 
 	c.JSON(http.StatusCreated, response)
@@ -131,8 +131,8 @@ func (h *MaintenanceHandler) GetMaintenanceOrder(c *gin.Context) {
 	}
 
 	h.logger.WithFields(logrus.Fields{
-		"orderId": status.OrderID,
-		"status":  status.Status,
+		"maintenanceOrder": status.MaintenanceOrder,
+		"status":           status.Status,
 	}).Info("Maintenance order status retrieved successfully")
 
 	c.JSON(http.StatusOK, status)

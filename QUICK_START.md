@@ -13,7 +13,7 @@ cd "SAP Adaptor"
 
 The SAP Adaptor will be running on `http://localhost:8080`
 
-## 🔧 Configuration
+## Configuration
 
 Edit `.env` file to configure:
 
@@ -29,7 +29,7 @@ Edit `.env` file to configure:
 - `SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL` - Your Digital Twin API URL
 - `SAP_ADAPTOR_DIGITAL_TWIN_API_KEY` - API key for authentication
 
-## 📡 API Endpoints
+## API Endpoints
 
 - **Health Check**: `GET /health`
 - **Create Order**: `POST /api/v1/maintenance-orders`
@@ -57,27 +57,21 @@ docker-compose down
 docker-compose up --build -d
 ```
 
-## 🧪 Testing
+## Testing
 
 ```bash
-# Test the API
-./scripts/test-api.sh
-
-# Run simulator demo
+# Run end-to-end test
 make test-simulator
-
-# Run polling demo
-make demo-polling
 ```
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 ├── api/                    # OpenAPI specifications
 ├── cmd/                    # Executable applications
 │   ├── server/            # Main API server
-│   ├── demo/              # Polling demo
-│   └── test/              # Simulator test
+│   ├── simulator/         # SAP simulator
+│   └── test/              # End-to-end test
 ├── internal/              # Internal packages
 │   ├── handlers/          # HTTP handlers
 │   ├── services/          # Business logic

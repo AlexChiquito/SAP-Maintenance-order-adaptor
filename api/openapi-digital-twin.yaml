@@ -20,21 +20,41 @@ paths:
             examples:
               example:
                 value:
-                  orderId: "400000586"
+                  maintenanceOrder: "400000586"
                   status: "TECO"
                   description: "Mock maintenance order"
-                  equipmentId: "10000045"
+                  equipment: "10000045"
                   plant: "1000"
-                  notificationId: "200000586"
+                  maintenanceNotification: "200000586"
                   completedAt: "2025-10-20T10:39:46Z"
                   actualStartTime: "2025-10-20T08:00:00Z"
                   actualEndTime: "2025-10-20T16:00:00Z"
                   operations:
-                    - operationId: "0010"
+                    - maintenanceOrderOperation: "0010"
                       text: "Mock operation"
                       status: "CNF"
                       actualWorkQuantity: 4
                       workQuantityUnit: "H"
+                  components:
+                    - material: "PUMP-SEAL-X200"
+                      description: "High-performance pump seal"
+                      requirementQuantity: 1.0
+                      materialUnit: "EA"
+                      goodsMovementType: "261"
+                      plant: "1000"
+                      storageLocation: "0001"
+                    - material: "BEARING-KIT-450"
+                      description: "Bearing kit for pump"
+                      requirementQuantity: 1.0
+                      materialUnit: "EA"
+                      goodsMovementType: "261"
+                      plant: "1000"
+                      storageLocation: "0001"
+                  objectList:
+                    - equipment: "PUMP-MAIN-12345-NEW"
+                      material: "PUMP-MODEL-X200"
+                      serialNumber: "SN-2026-85539"
+                      functionalLocation: "PLANT-AREA-01"
       responses:
         '202':
           description: Accepted for processing
@@ -60,21 +80,24 @@ components:
   schemas:
     MaintenanceCompletedNotification:
       type: object
-      required: [orderId, status, completedAt]
+      required: [maintenanceOrder, status, completedAt]
       properties:
-        orderId:
+        maintenanceOrder:
           type: string
+          description: SAP Maintenance Order Number
         status:
           type: string
           description: Expected TECO or CLSD
         description:
           type: string
-        equipmentId:
+        equipment:
           type: string
+          description: SAP Equipment Number
         plant:
           type: string
-        notificationId:
+        maintenanceNotification:
           type: string
+          description: SAP Maintenance Notification Number
         completedAt:
           type: string
           format: date-time
@@ -88,12 +111,23 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/OperationStatus'
+        components:
+          type: array
+          description: Parts/materials consumed during maintenance
+          items:
+            $ref: '#/components/schemas/ComponentStatus'
+        objectList:
+          type: array
+          description: Equipment installed/replaced during maintenance
+          items:
+            $ref: '#/components/schemas/ObjectListItemStatus'
 
     OperationStatus:
       type: object
       properties:
-        operationId:
+        maintenanceOrderOperation:
           type: string
+          description: SAP Maintenance Order Operation Number
         text:
           type: string
         status:
@@ -111,6 +145,50 @@ components:
           type: boolean
         message:
           type: string
+
+    ComponentStatus:
+      type: object
+      description: Parts/materials consumed during maintenance
+      properties:
+        material:
+          type: string
+          description: Material number/ID
+        description:
+          type: string
+          description: Material description
+        requirementQuantity:
+          type: number
+          format: float
+          description: Quantity consumed
+        materialUnit:
+          type: string
+          description: Unit of measure (EA, KG, etc.)
+        goodsMovementType:
+          type: string
+          description: SAP movement type (e.g., 261 for consumption)
+        plant:
+          type: string
+          description: Plant code
+        storageLocation:
+          type: string
+          description: Storage location code
+
+    ObjectListItemStatus:
+      type: object
+      description: Equipment installed/replaced during maintenance
+      properties:
+        equipment:
+          type: string
+          description: Equipment ID/number
+        material:
+          type: string
+          description: Material number of the equipment
+        serialNumber:
+          type: string
+          description: Serial number of the equipment
+        functionalLocation:
+          type: string
+          description: Functional location code
 
     ErrorResponse:
       type: object

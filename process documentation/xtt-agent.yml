@@ -1,0 +1,84 @@
+asyncapi: 3.0.0
+info:
+  title: xTT Agent
+  version: 0.0.1
+channels:
+  agent:
+    address: xtt/agent/{agentId}
+    parameters:
+      agentId:
+        $ref: "#/components/parameters/agentId"
+    messages:
+      status:
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/AgentStatus"
+  applicationServices:
+    address: xtt/agent/{agentId}/application-services
+    parameters:
+      agentId:
+        $ref: "#/components/parameters/agentId"
+    messages:
+      create:
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/CreateApplicationService"
+  applicationServiceOperations:
+    address: xtt/agent/{agentId}/application-services/{applicationServiceInstanceId}/operations
+    parameters:
+      agentId:
+        $ref: "#/components/parameters/agentId"
+      applicationServiceInstanceId:
+        $ref: "#/components/parameters/applicationServiceInstanceId"
+    messages:
+      execute:
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/ExecuteApplicationOperation"
+      report:
+        contentType: application/json
+        payload:
+          $ref: "#/components/schemas/ReportApplicationServiceOperationResult"
+operations:
+  reportAgentStatus:
+    action: send
+    channel:
+      $ref: "#/channels/agent"
+    summary: Report current agent status
+    messages:
+      - $ref: "#/channels/agent/messages/status"
+  createApplicationService:
+    action: receive
+    channel:
+      $ref: "#/channels/applicationServices"
+    messages:
+      - $ref: "#/channels/applicationServices/messages/create"
+  executeApplicationServiceOperation:
+    action: receive
+    channel:
+      $ref: "#/channels/applicationServiceOperations"
+    summary: Perform an operation using an instantiated application service
+    messages:
+      - $ref: "#/channels/applicationServiceOperations/messages/execute"
+  reportApplicationServiceOperation:
+    action: send
+    channel:
+      $ref: "#/channels/applicationServiceOperations"
+    summary: Report an executed application service operation
+    messages:
+      - $ref: "#/channels/applicationServiceOperations/messages/report"
+components:
+  parameters:
+    agentId:
+      description: Globally unique identifier for a single instance of an agent
+    applicationServiceInstanceId:
+      description: The, for the agent, unique identifier of an instantiated application service
+  schemas:
+    AgentStatus:
+      $ref: "../models/agent/agent-status.yml#/AgentStatus"
+    CreateApplicationService:
+      $ref: "../models/agent/agent-operations.yml#/CreateApplicationService"
+    ExecuteApplicationOperation:
+      $ref: "../models/agent/agent-operations.yml#/ExecuteApplicationOperation"
+    ReportApplicationServiceOperationResult:
+      $ref: "../models/agent/agent-operations.yml#/ReportApplicationServiceOperationResult"

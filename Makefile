@@ -1,124 +1,170 @@
 # SAP Adaptor Makefile
 
-.PHONY: build run test clean docker-build docker-run docker-compose-up docker-compose-down lint fmt
-
-# Go parameters
-GOCMD=go
-GOBUILD=$(GOCMD) build
-GOCLEAN=$(GOCMD) clean
-GOTEST=$(GOCMD) test
-GOGET=$(GOCMD) get
-GOMOD=$(GOCMD) mod
+# Variables
 BINARY_NAME=sap-adaptor
-BINARY_UNIX=$(BINARY_NAME)_unix
+SIMULATOR_NAME=sap-simulator
+GO=go
+GOBUILD=$(GO) build
+GOCLEAN=$(GO) clean
+GOTEST=$(GO) test
+GOGET=$(GO) get
+GOMOD=$(GO) mod
 
-# Build the application
-build: swagger
-	$(GOBUILD) -o $(BINARY_NAME) -v ./cmd/server
+# Main targets
+.PHONY: all build clean test run help
 
-# Build for Linux
-build-linux:
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 $(GOBUILD) -o $(BINARY_UNIX) -v ./cmd/server
+all: build
 
-# Run the application
+# Build main adaptor
+build:
+	$(GOBUILD) -o bin/$(BINARY_NAME) -v ./cmd/server
+
+# Build simulator
+build-simulator:
+	$(GOBUILD) -o bin/$(SIMULATOR_NAME) -v ./cmd/simulator
+
+# Build both
+build-all: build build-simulator
+
+# Run main adaptor
 run:
-	$(GOBUILD) -o $(BINARY_NAME) -v ./cmd/server
-	./$(BINARY_NAME)
+	$(GOBUILD) -o bin/$(BINARY_NAME) -v ./cmd/server
+	./bin/$(BINARY_NAME)
 
-# Run tests
+# Run simulator
+run-simulator:
+	$(GO) run ./cmd/simulator
+
+# Test
 test:
 	$(GOTEST) -v ./...
 
-# Run tests with coverage
-test-coverage:
-	$(GOTEST) -v -coverprofile=coverage.out ./...
-	$(GOCMD) tool cover -html=coverage.out
-
-# Test simulator
+# Test simulator with HTTP calls (starts all services automatically)
 test-simulator:
-	$(GOBUILD) -o test-simulator -v ./cmd/test
-	./test-simulator
-	rm -f test-simulator
+	@echo "========================================="
+	@echo "Starting SAP Adaptor End-to-End Test"
+	@echo "========================================="
+	@echo ""
+	@echo "Cleaning up any existing services..."
+	@-lsof -ti:8081,8080 | xargs kill -9 2>/dev/null || true
+	@sleep 1
+	@echo "✅ Ports cleared"
+	@echo ""
+	@echo "Building binaries..."
+	@$(GOBUILD) -o bin/$(SIMULATOR_NAME) ./cmd/simulator
+	@$(GOBUILD) -o bin/$(BINARY_NAME) ./cmd/server
+	@$(GOBUILD) -o bin/test ./cmd/test
+	@echo "✅ Binaries built"
+	@echo ""
+	@echo "Starting simulator on port 8081..."
+	@./bin/$(SIMULATOR_NAME) > /tmp/sap-simulator.log 2>&1 & echo $$! > .simulator.pid
+	@sleep 2
+	@if ps -p `cat .simulator.pid` > /dev/null 2>&1; then \
+		echo "✅ Simulator started (PID: `cat .simulator.pid`)"; \
+	else \
+		echo "❌ Simulator failed to start"; \
+		cat /tmp/sap-simulator.log; \
+		rm -f .simulator.pid; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Starting SAP Adaptor on port 8080..."
+	@SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \
+		SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \
+		SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \
+		./bin/$(BINARY_NAME) > /tmp/sap-adaptor.log 2>&1 & echo $$! > .adaptor.pid
+	@sleep 2
+	@if ps -p `cat .adaptor.pid` > /dev/null 2>&1; then \
+		echo "✅ SAP Adaptor started (PID: `cat .adaptor.pid`)"; \
+	else \
+		echo "❌ SAP Adaptor failed to start"; \
+		cat /tmp/sap-adaptor.log; \
+		kill `cat .simulator.pid` 2>/dev/null || true; \
+		rm -f .simulator.pid .adaptor.pid; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Note: Callback listener not started (optional)"
+	@echo "      To see Digital Twin notifications, run in another terminal:"
+	@echo "      python3 scripts/listen-callback.py"
+	@echo ""
+	@echo "Running end-to-end test..."
+	@echo "========================================="
+	@echo ""
+	@./bin/test || (echo ""; echo "❌ Test failed"; kill `cat .simulator.pid .adaptor.pid` 2>/dev/null; rm -f .simulator.pid .adaptor.pid; exit 1)
+	@echo ""
+	@echo "========================================="
+	@echo "Stopping services..."
+	@kill `cat .simulator.pid .adaptor.pid` 2>/dev/null || true
+	@rm -f .simulator.pid .adaptor.pid
+	@echo "✅ Services stopped"
+	@echo ""
+	@echo "Logs available at:"
+	@echo "  - /tmp/sap-simulator.log"
+	@echo "  - /tmp/sap-adaptor.log"
+	@echo ""
+	@echo "========================================="
+	@echo "✅ Test completed successfully!"
+	@echo "========================================="
 
-# Demo polling
-demo-polling:
-	$(GOBUILD) -o demo-polling -v ./cmd/demo
-	./demo-polling
-	rm -f demo-polling
+# Test with simulator running
+test-full:
+	@echo "Starting simulator in background..."
+	@$(GO) run ./cmd/simulator & echo $$! > .simulator.pid && \
+	sleep 2 && \
+	echo "Running tests..." && \
+	$(GO) run ./cmd/test && \
+	kill `cat .simulator.pid` && \
+	rm .simulator.pid
 
-# Clean build artifacts
+# Clean
 clean:
 	$(GOCLEAN)
-	rm -f $(BINARY_NAME)
-	rm -f $(BINARY_UNIX)
-	rm -f coverage.out
+	rm -f bin/$(BINARY_NAME)
+	rm -f bin/$(SIMULATOR_NAME)
+	rm -f bin/test
+	rm -f test-simulator
+	rm -f .simulator.pid
+	rm -f .adaptor.pid
+	rm -f /tmp/sap-simulator.log
+	rm -f /tmp/sap-adaptor.log
 
-# Install dependencies
+# Dependencies
 deps:
 	$(GOMOD) download
 	$(GOMOD) tidy
 
-# Format code
-fmt:
-	$(GOCMD) fmt ./...
-
-# Lint code
-lint:
-	golangci-lint run
-
-# Generate Swagger documentation
-swagger:
-	swag init -g cmd/server/main.go
-
-# Docker build
+# Docker
 docker-build:
-	docker build -t $(BINARY_NAME) .
+	docker build --target adaptor -t $(BINARY_NAME) .
+	docker build --target simulator -t $(SIMULATOR_NAME) .
 
-# Docker run
 docker-run:
-	docker run -p 8080:8080 --env-file env.example $(BINARY_NAME)
+	docker compose up -d
 
-# Docker Compose up
-docker-compose-up:
-	docker-compose up -d
+docker-stop:
+	docker compose down
 
-# Docker Compose down
-docker-compose-down:
-	docker-compose down
-
-# Docker Compose logs
-docker-compose-logs:
-	docker-compose logs -f
-
-# Development setup
-dev-setup:
-	cp env.example .env
-	$(GOMOD) download
-	$(GOMOD) tidy
-
-# Production build
-prod-build: build-linux
-	docker build -t $(BINARY_NAME):latest .
+docker-logs:
+	docker compose logs -f
 
 # Help
 help:
-	@echo "Available targets:"
-	@echo "  build              - Build the application"
-	@echo "  build-linux        - Build for Linux"
-	@echo "  run                - Build and run the application"
-	@echo "  test               - Run tests"
-	@echo "  test-simulator     - Test simulator mode functionality"
-	@echo "  demo-polling       - Demo polling-based TECO detection"
+	@echo "SAP Adaptor Makefile"
+	@echo ""
+	@echo "Targets:"
+	@echo "  build              - Build the main adaptor"
+	@echo "  build-simulator    - Build the simulator"
+	@echo "  build-all          - Build both adaptor and simulator"
+	@echo "  run                - Build and run the main adaptor"
+	@echo "  run-simulator      - Run the simulator"
+	@echo "  test               - Run unit tests"
+	@echo "  test-simulator     - Test simulator functionality"
+	@echo "  test-full          - Test with simulator running in background"
 	@echo "  clean              - Clean build artifacts"
-	@echo "  deps               - Install dependencies"
-	@echo "  fmt                - Format code"
-	@echo "  lint               - Lint code"
-	@echo "  swagger            - Generate Swagger documentation"
-	@echo "  docker-build       - Build Docker image"
-	@echo "  docker-run         - Run Docker container"
-	@echo "  docker-compose-up  - Start with Docker Compose"
-	@echo "  docker-compose-down- Stop Docker Compose"
-	@echo "  docker-compose-logs- Show Docker Compose logs"
-	@echo "  dev-setup          - Setup development environment"
-	@echo "  prod-build         - Production build"
-	@echo "  help               - Show this help"
+	@echo "  deps               - Download and tidy dependencies"
+	@echo "  docker-build       - Build Docker images"
+	@echo "  docker-run         - Run with docker-compose"
+	@echo "  docker-stop        - Stop docker-compose"
+	@echo "  docker-logs        - View docker logs"
+	@echo "  help               - Show this help message"

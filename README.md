@@ -12,12 +12,6 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 4. **Monitors order status** until completion
 5. **Sends Maintenance Done Event** back to Digital Twin
 
-## Features
-
-- RESTful API with OpenAPI 3.0 specification
-- SAP Plant Maintenance integration (with simulator mode for testing)
-- **Simulator Mode** for testing without real SAP access
-
 ## API Endpoints
 
 ### Maintenance Orders
@@ -30,6 +24,30 @@ The SAP Adaptor follows the integration workflow specified in the architecture:
 ### System
 - `GET /health` - Health check
 - `GET /metrics` - Service metrics
+
+## Testing
+
+To run the end-to-end test:
+
+```bash
+# Terminal 1: Start the simulator
+./bin/simulator
+
+# Terminal 2: Start the adaptor (in simulator mode)
+SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \
+SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \
+SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \
+./bin/sap-adaptor
+
+# Terminal 3: Run the test
+make test-simulator
+```
+
+The test demonstrates the complete workflow:
+1. Digital Twin sends maintenance order event
+2. Adaptor creates notification and order in SAP
+3. Adaptor polls order status until completion
+4. Final order includes components and equipment data
 
 ## Quick Start
 
@@ -115,16 +133,13 @@ The service will start on `http://localhost:8080` in **simulator mode** by defau
 
 The service can be configured via:
 
-1. **Environment variables** (recommended for production)
+1. **Environment variables** 
 2. **YAML configuration file** (`config.yaml`)
-3. **Command line flags** (future enhancement)
 
 ### Simulator Mode (Default)
 
 For testing and demonstration purposes, the service runs in **simulator mode** by default:
 
-- **Mock responses** for all SAP API calls
-- **Realistic data** that follows SAP response formats
 
 ### Production Mode
 
@@ -149,23 +164,6 @@ The OpenAPI specification is available at:
 - Swagger UI: `http://localhost:8080/swagger/index.html`
 - OpenAPI spec: `http://localhost:8080/swagger/doc.json`
 
-## Testing with Simulator Mode
-
-The simulator mode can be used for testing the API structure and workflow without needing access to a real SAP system.
-
-### Quick Test Script
-
-Run the included test script to see the full workflow:
-
-```bash
-./scripts/test-api.sh
-```
-
-This script will:
-1. Test the health endpoint
-2. Create a maintenance order (returns mock SAP order ID)
-3. Query the order status
-4. Send a maintenance done event
 
 ### Manual Testing
 
@@ -231,11 +229,14 @@ curl http://localhost:8080/api/v1/maintenance-orders/400000123
   ]
 }
 ```
-### Demo
-To test the end-to-end simulator demo, use:
+### End-to-End Test
+
+To run the complete integration test:
 ```bash
 make test-simulator
 ```
+
+This test creates a maintenance order, monitors status changes, and retrieves final equipment data.
 
 ### Simulator Behavior
 
@@ -243,7 +244,7 @@ The simulator generates realistic responses:
 
 - **Notification IDs**: `200000XXX` format
 - **Order IDs**: `400000XXX` format  
-- **Status Progression**: CRTD → REL → TECO → CLSD (based on order ID)
+- **Status Progression**: CRTD → REL → TECO
 - **Mock Operations**: Realistic operation data
 - **Timestamps**: Current time for realistic testing
 

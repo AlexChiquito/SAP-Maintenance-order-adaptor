@@ -1,13 +1,15 @@
 package config
 
 import (
+	"fmt"
+
 	"github.com/spf13/viper"
 )
 
 // Config holds all configuration for the application
 type Config struct {
-	Server ServerConfig `mapstructure:"server"`
-	SAP    SAPConfig    `mapstructure:"sap"`
+	Server      ServerConfig      `mapstructure:"server"`
+	SAP         SAPConfig         `mapstructure:"sap"`
 	DigitalTwin DigitalTwinConfig `mapstructure:"digitalTwin"`
 }
 
@@ -26,7 +28,6 @@ type SAPConfig struct {
 	ClientSecret string `mapstructure:"clientSecret"`
 	TokenURL     string `mapstructure:"tokenUrl"`
 	Timeout      int    `mapstructure:"timeout"`
-	SimulatorMode bool  `mapstructure:"simulatorMode"`
 }
 
 // DigitalTwinConfig holds Digital Twin system configuration
@@ -41,8 +42,18 @@ func Load() *Config {
 	viper.SetDefault("server.port", "8080")
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("sap.timeout", 30)
-	viper.SetDefault("sap.simulatorMode", true)
 	viper.SetDefault("digitalTwin.timeout", 30)
+
+	// Try to read config file
+	viper.SetConfigName("config")
+	viper.SetConfigType("yaml")
+	viper.AddConfigPath(".")
+	if err := viper.ReadInConfig(); err != nil {
+		// Config file not found is okay, we'll use env vars and defaults
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			panic(fmt.Sprintf("Error reading config file: %s", err))
+		}
+	}
 
 	// Set environment variable prefix
 	viper.SetEnvPrefix("SAP_ADAPTOR")
@@ -58,7 +69,6 @@ func Load() *Config {
 	viper.BindEnv("sap.clientSecret", "SAP_ADAPTOR_SAP_CLIENT_SECRET")
 	viper.BindEnv("sap.tokenUrl", "SAP_ADAPTOR_SAP_TOKEN_URL")
 	viper.BindEnv("sap.timeout", "SAP_ADAPTOR_SAP_TIMEOUT")
-	viper.BindEnv("sap.simulatorMode", "SAP_ADAPTOR_SAP_SIMULATOR_MODE")
 	viper.BindEnv("digitalTwin.baseUrl", "SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL")
 	viper.BindEnv("digitalTwin.apiKey", "SAP_ADAPTOR_DIGITAL_TWIN_API_KEY")
 	viper.BindEnv("digitalTwin.timeout", "SAP_ADAPTOR_DIGITAL_TWIN_TIMEOUT")
