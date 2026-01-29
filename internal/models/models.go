@@ -28,7 +28,7 @@ type MaintenanceOperation struct {
 
 // MaintenanceOrderResponse represents the response after creating an order
 type MaintenanceOrderResponse struct {
-	MaintenanceOrder       string    `json:"maintenanceOrder"`
+	MaintenanceOrder        string    `json:"maintenanceOrder"`
 	MaintenanceNotification string    `json:"maintenanceNotification"`
 	Status                  string    `json:"status"`
 	Message                 string    `json:"message"`
@@ -61,20 +61,20 @@ type OperationStatus struct {
 
 // ComponentStatus represents a component used in maintenance
 type ComponentStatus struct {
-	Material              string  `json:"material"`
-	Description           string  `json:"description"`
-	RequirementQuantity   float64 `json:"requirementQuantity"`
-	MaterialUnit          string  `json:"materialUnit"`
-	GoodsMovementType     string  `json:"goodsMovementType"`
-	Plant                 string  `json:"plant,omitempty"`
-	StorageLocation       string  `json:"storageLocation,omitempty"`
+	Material            string  `json:"material"`
+	Description         string  `json:"description"`
+	RequirementQuantity float64 `json:"requirementQuantity"`
+	MaterialUnit        string  `json:"materialUnit"`
+	GoodsMovementType   string  `json:"goodsMovementType"`
+	Plant               string  `json:"plant,omitempty"`
+	StorageLocation     string  `json:"storageLocation,omitempty"`
 }
 
 // ObjectListItemStatus represents equipment in the object list
 type ObjectListItemStatus struct {
-	Equipment        string `json:"equipment"`
-	Material         string `json:"material"`
-	SerialNumber     string `json:"serialNumber"`
+	Equipment          string `json:"equipment"`
+	Material           string `json:"material"`
+	SerialNumber       string `json:"serialNumber"`
 	FunctionalLocation string `json:"functionalLocation,omitempty"`
 }
 
@@ -205,15 +205,15 @@ type SAPOrderComponentResponse struct {
 
 // SAP Object List Item Response - Tracks equipment involved
 type SAPObjectListItemResponse struct {
-	MaintenanceOrder           string `json:"MaintenanceOrder"`
-	MaintenanceObjectListItem  int    `json:"MaintenanceObjectListItem"`
-	Equipment                  string `json:"Equipment,omitempty"`
-	Material                   string `json:"Material,omitempty"`
-	SerialNumber               string `json:"SerialNumber,omitempty"`
-	Assembly                   string `json:"Assembly,omitempty"`
-	FunctionalLocation         string `json:"FunctionalLocation,omitempty"`
+	MaintenanceOrder            string `json:"MaintenanceOrder"`
+	MaintenanceObjectListItem   int    `json:"MaintenanceObjectListItem"`
+	Equipment                   string `json:"Equipment,omitempty"`
+	Material                    string `json:"Material,omitempty"`
+	SerialNumber                string `json:"SerialNumber,omitempty"`
+	Assembly                    string `json:"Assembly,omitempty"`
+	FunctionalLocation          string `json:"FunctionalLocation,omitempty"`
 	MaintObjectListItemSequence string `json:"MaintObjectListItemSequence,omitempty"`
-	Metadata                   struct {
+	Metadata                    struct {
 		ID   string `json:"id"`
 		URI  string `json:"uri"`
 		Type string `json:"type"`

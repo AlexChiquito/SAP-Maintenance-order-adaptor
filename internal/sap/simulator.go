@@ -11,9 +11,9 @@ import (
 
 // StoredOrder holds the original order request data
 type StoredOrder struct {
-	Request     *models.SAPOrderRequest
-	OrderID     string
-	CreatedAt   time.Time
+	Request   *models.SAPOrderRequest
+	OrderID   string
+	CreatedAt time.Time
 }
 
 // MockGenerator provides functions to generate mock SAP responses
@@ -33,12 +33,12 @@ func NewMockGenerator() *MockGenerator {
 func (g *MockGenerator) CreateMockNotificationResponse(req *models.SAPNotificationRequest) *models.SAPNotificationResponse {
 	// Generate a mock notification ID
 	notificationID := fmt.Sprintf("200000%03d", time.Now().Unix()%1000)
-	
+
 	return &models.SAPNotificationResponse{
 		D: struct {
-			Notification   string `json:"Notification"`
-			Description    string `json:"Description"`
-			Plant          string `json:"Plant"`
+			Notification string `json:"Notification"`
+			Description  string `json:"Description"`
+			Plant        string `json:"Plant"`
 		}{
 			Notification: notificationID,
 			Description:  req.Description,
@@ -51,22 +51,22 @@ func (g *MockGenerator) CreateMockNotificationResponse(req *models.SAPNotificati
 func (g *MockGenerator) CreateMockOrderResponse(req *models.SAPOrderRequest) *models.SAPOrderResponse {
 	// Generate a mock order ID
 	orderID := fmt.Sprintf("400000%03d", time.Now().Unix()%1000)
-	
+
 	// Create mock operations
 	var operations []models.SAPOrderOperationResponse
 	for i, op := range req.ToMaintenanceOrderOperation {
 		operationID := fmt.Sprintf("%04d", (i+1)*10)
 		operations = append(operations, models.SAPOrderOperationResponse{
-			MaintenanceOrder:                orderID,
-			MaintenanceOrderOperation:       operationID,
-			OperationText:                   op.OperationText,
-			WorkCenter:                      op.WorkCenter,
-			OperationControlKey:             op.OperationControlKey,
-			OperationStandardDuration:       op.OperationStandardDuration,
-			OperationDurationUnit:           op.OperationDurationUnit,
+			MaintenanceOrder:          orderID,
+			MaintenanceOrderOperation: operationID,
+			OperationText:             op.OperationText,
+			WorkCenter:                op.WorkCenter,
+			OperationControlKey:       op.OperationControlKey,
+			OperationStandardDuration: op.OperationStandardDuration,
+			OperationDurationUnit:     op.OperationDurationUnit,
 			Metadata: struct {
-				ID  string `json:"id"`
-				URI string `json:"uri"`
+				ID   string `json:"id"`
+				URI  string `json:"uri"`
 				Type string `json:"type"`
 			}{
 				ID:   fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, operationID),
@@ -75,7 +75,7 @@ func (g *MockGenerator) CreateMockOrderResponse(req *models.SAPOrderRequest) *mo
 			},
 		})
 	}
-	
+
 	// Create response with just operations (no components/object list on creation)
 	resp := &models.SAPOrderResponse{}
 	resp.D.MaintenanceOrder = orderID
@@ -91,7 +91,7 @@ func (g *MockGenerator) CreateMockOrderResponse(req *models.SAPOrderRequest) *mo
 	resp.D.Metadata.URI = fmt.Sprintf(".../A_MaintenanceOrder('%s')", orderID)
 	resp.D.Metadata.Type = "API_MAINTENANCE_ORDER.A_MaintenanceOrderType"
 	resp.D.ToMaintenanceOrderOperation.Results = operations
-	
+
 	// Store the order for later retrieval
 	g.mu.Lock()
 	g.orderStore[orderID] = &StoredOrder{
@@ -100,7 +100,7 @@ func (g *MockGenerator) CreateMockOrderResponse(req *models.SAPOrderRequest) *mo
 		CreatedAt: time.Now(),
 	}
 	g.mu.Unlock()
-	
+
 	return resp
 }
 
@@ -114,11 +114,11 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	g.mu.RLock()
 	storedOrder := g.orderStore[orderID]
 	g.mu.RUnlock()
-	
+
 	// Determine status based on time elapsed since creation
 	status := "CRTD" // Default to created
 	isTECO := false
-	
+
 	if storedOrder != nil {
 		elapsed := time.Since(storedOrder.CreatedAt)
 		if elapsed >= 30*time.Second {
@@ -128,7 +128,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 			status = "REL"
 		}
 	}
-	
+
 	// Use stored order data if available, otherwise use defaults
 	var operations []models.SAPOrderOperationResponse
 	description := "Equipment replacement maintenance"
@@ -138,7 +138,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	notification := "200000123"
 	startTime := time.Now().Add(-8 * time.Hour).Format(time.RFC3339)
 	endTime := time.Now().Format(time.RFC3339)
-	
+
 	if storedOrder != nil {
 		// Use data from stored order
 		req := storedOrder.Request
@@ -149,7 +149,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 		notification = req.MaintenanceNotification
 		startTime = req.MaintOrdBasicStartDateTime
 		endTime = req.MaintOrdBasicEndDateTime
-		
+
 		// Generate operations from stored request
 		for i, op := range req.ToMaintenanceOrderOperation {
 			operationID := fmt.Sprintf("%04d", (i+1)*10)
@@ -176,7 +176,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 			})
 		}
 	}
-	
+
 	// If no stored operations or no stored order, create default operations
 	if len(operations) == 0 {
 		operations = []models.SAPOrderOperationResponse{
@@ -224,7 +224,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 			},
 		}
 	}
-	
+
 	resp := &models.SAPOrderResponse{}
 	resp.D.MaintenanceOrder = orderID
 	resp.D.MaintenanceOrderType = maintenanceOrderType
@@ -239,7 +239,7 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	resp.D.Metadata.URI = fmt.Sprintf(".../A_MaintenanceOrder('%s')", orderID)
 	resp.D.Metadata.Type = "API_MAINTENANCE_ORDER.A_MaintenanceOrderType"
 	resp.D.ToMaintenanceOrderOperation.Results = operations
-	
+
 	// Add component and object list data only for TECO/CLSD orders
 	if isTECO {
 		// Generate components and attach to operations (real SAP structure)
@@ -251,12 +251,12 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 				break
 			}
 		}
-		
+
 		// Generate object list at order level
 		objectList := g.generateObjectList(orderID, equipment, storedOrder)
 		resp.D.ToMaintOrderObjectListItem.Results = objectList
 	}
-	
+
 	return resp
 }
 
@@ -264,10 +264,10 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 func (g *MockGenerator) generateComponents(orderID, equipment, plant string) []models.SAPOrderComponentResponse {
 	var components []models.SAPOrderComponentResponse
 	reservationBase := fmt.Sprintf("%010d", time.Now().Unix()%10000000)
-	
+
 	// Determine component type based on equipment
 	equipmentUpper := strings.ToUpper(equipment)
-	
+
 	if strings.Contains(equipmentUpper, "PUMP") {
 		// Pump-related components
 		components = []models.SAPOrderComponentResponse{
@@ -411,7 +411,7 @@ func (g *MockGenerator) generateComponents(orderID, equipment, plant string) []m
 			},
 		}
 	}
-	
+
 	return components
 }
 
@@ -421,13 +421,13 @@ func (g *MockGenerator) generateObjectList(orderID, equipment string, storedOrde
 	randomSuffix := time.Now().Unix() % 100000
 	newSerialNumber := fmt.Sprintf("SN-2026-%05d", randomSuffix)
 	newEquipmentNumber := fmt.Sprintf("%s-NEW-%05d", equipment, randomSuffix)
-	
+
 	// Determine material and assembly based on equipment type
 	equipmentUpper := strings.ToUpper(equipment)
 	material := "GENERIC-MODEL"
 	assembly := "ASSEMBLY-01"
 	functionalLocation := "FL100-200-300"
-	
+
 	if strings.Contains(equipmentUpper, "PUMP") {
 		material = "PUMP-MODEL-X200"
 		assembly = "PUMP-ASSEMBLY-01"
@@ -435,21 +435,21 @@ func (g *MockGenerator) generateObjectList(orderID, equipment string, storedOrde
 		material = "VALVE-MODEL-V50"
 		assembly = "VALVE-ASSEMBLY-01"
 	}
-	
+
 	// Use functional location from stored order if available
 	if storedOrder != nil && storedOrder.Request.FunctionalLocation != "" {
 		functionalLocation = storedOrder.Request.FunctionalLocation
 	}
-	
+
 	return []models.SAPObjectListItemResponse{
 		{
-			MaintenanceOrder:          orderID,
-			MaintenanceObjectListItem: 1,
-			Equipment:                 newEquipmentNumber,
-			Material:                  material,
-			SerialNumber:              newSerialNumber,
-			Assembly:                  assembly,
-			FunctionalLocation:        functionalLocation,
+			MaintenanceOrder:            orderID,
+			MaintenanceObjectListItem:   1,
+			Equipment:                   newEquipmentNumber,
+			Material:                    material,
+			SerialNumber:                newSerialNumber,
+			Assembly:                    assembly,
+			FunctionalLocation:          functionalLocation,
 			MaintObjectListItemSequence: "0001",
 			Metadata: struct {
 				ID   string `json:"id"`

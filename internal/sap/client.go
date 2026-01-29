@@ -50,8 +50,8 @@ func (c *Client) CreateNotification(ctx context.Context, req *models.SAPNotifica
 	}
 
 	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", 
-		c.config.BaseURL+"/API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification", 
+	httpReq, err := http.NewRequestWithContext(ctx, "POST",
+		c.config.BaseURL+"/API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification",
 		bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -111,8 +111,8 @@ func (c *Client) CreateOrder(ctx context.Context, req *models.SAPOrderRequest) (
 	}
 
 	// Create HTTP request
-	httpReq, err := http.NewRequestWithContext(ctx, "POST", 
-		c.config.BaseURL+"/API_MAINTENANCE_ORDER/A_MaintenanceOrder", 
+	httpReq, err := http.NewRequestWithContext(ctx, "POST",
+		c.config.BaseURL+"/API_MAINTENANCE_ORDER/A_MaintenanceOrder",
 		bytes.NewBuffer(reqBody))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -160,7 +160,7 @@ func (c *Client) CreateOrder(ctx context.Context, req *models.SAPOrderRequest) (
 func (c *Client) GetOrder(ctx context.Context, orderID string) (*models.SAPOrderResponse, error) {
 	c.logger.WithFields(logrus.Fields{
 		"orderId": orderID,
-		"baseURL":  c.config.BaseURL,
+		"baseURL": c.config.BaseURL,
 	}).Info("Retrieving SAP maintenance order")
 
 	// Create URL with expand parameter
@@ -229,14 +229,14 @@ func ConvertMaintenanceOrderEventToNotificationRequest(event *models.Maintenance
 // ConvertMaintenanceOrderEventToOrderRequest converts a MaintenanceOrderEvent to SAP order request
 func ConvertMaintenanceOrderEventToOrderRequest(event *models.MaintenanceOrderEvent, notificationID string) *models.SAPOrderRequest {
 	req := &models.SAPOrderRequest{
-		MaintenanceOrderType:    event.MaintenanceOrderType,
-		Description:             event.Description,
-		Equipment:               event.EquipmentID,
-		FunctionalLocation:      event.FunctionalLocation,
-		Plant:                   event.Plant,
+		MaintenanceOrderType:     event.MaintenanceOrderType,
+		Description:              event.Description,
+		Equipment:                event.EquipmentID,
+		FunctionalLocation:       event.FunctionalLocation,
+		Plant:                    event.Plant,
 		MaintenancePlanningPlant: event.Plant, // Default to same plant
-		Priority:                event.Priority,
-		MaintenanceNotification: notificationID,
+		Priority:                 event.Priority,
+		MaintenanceNotification:  notificationID,
 	}
 
 	// Add time fields if provided
@@ -299,17 +299,17 @@ func ConvertSAPOrderResponseToStatus(resp *models.SAPOrderResponse) *models.Main
 				opStatus.ActualWorkQuantity = qty
 			}
 		}
-		
+
 		// Extract components from operation level (matches real SAP structure)
 		if op.ToMaintOrderOpComponent2.Results != nil {
 			for _, comp := range op.ToMaintOrderOpComponent2.Results {
 				compStatus := models.ComponentStatus{
-					Material:            comp.Product,
-					Description:         comp.MaintOrdOperationComponentText,
-					MaterialUnit:        comp.BaseUnit,
-					GoodsMovementType:   comp.GoodsMovementType,
-					Plant:               comp.Plant,
-					StorageLocation:     comp.StorageLocation,
+					Material:          comp.Product,
+					Description:       comp.MaintOrdOperationComponentText,
+					MaterialUnit:      comp.BaseUnit,
+					GoodsMovementType: comp.GoodsMovementType,
+					Plant:             comp.Plant,
+					StorageLocation:   comp.StorageLocation,
 				}
 				if comp.MaintOrdOpCompRequiredQuantity != "" {
 					if qty, err := strconv.ParseFloat(comp.MaintOrdOpCompRequiredQuantity, 64); err == nil {
@@ -319,7 +319,7 @@ func ConvertSAPOrderResponseToStatus(resp *models.SAPOrderResponse) *models.Main
 				opStatus.Components = append(opStatus.Components, compStatus)
 			}
 		}
-		
+
 		status.Operations = append(status.Operations, opStatus)
 	}
 

@@ -1,0 +1,286 @@
+basePath: /api/v1
+definitions:
+  models.ComponentStatus:
+    properties:
+      description:
+        type: string
+      goodsMovementType:
+        type: string
+      material:
+        type: string
+      materialUnit:
+        type: string
+      plant:
+        type: string
+      requirementQuantity:
+        type: number
+      storageLocation:
+        type: string
+    type: object
+  models.ErrorResponse:
+    properties:
+      code:
+        type: string
+      details: {}
+      error:
+        type: string
+    type: object
+  models.MaintenanceDoneEvent:
+    properties:
+      actualWorkHours:
+        type: number
+      completedAt:
+        type: string
+      notes:
+        type: string
+      orderId:
+        type: string
+      status:
+        type: string
+    required:
+    - orderId
+    - status
+    type: object
+  models.MaintenanceOperation:
+    properties:
+      duration:
+        type: number
+      durationUnit:
+        type: string
+      text:
+        type: string
+      workCenter:
+        type: string
+    required:
+    - text
+    type: object
+  models.MaintenanceOrderEvent:
+    properties:
+      description:
+        type: string
+      equipmentId:
+        type: string
+      functionalLocation:
+        type: string
+      maintenanceOrderType:
+        type: string
+      operations:
+        items:
+          $ref: '#/definitions/models.MaintenanceOperation'
+        type: array
+      plannedEndTime:
+        type: string
+      plannedStartTime:
+        type: string
+      plant:
+        type: string
+      priority:
+        type: string
+    required:
+    - description
+    - equipmentId
+    - plant
+    type: object
+  models.MaintenanceOrderResponse:
+    properties:
+      createdAt:
+        type: string
+      maintenanceNotification:
+        type: string
+      maintenanceOrder:
+        type: string
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  models.MaintenanceOrderStatus:
+    properties:
+      actualEndTime:
+        type: string
+      actualStartTime:
+        type: string
+      description:
+        type: string
+      equipment:
+        type: string
+      maintenanceNotification:
+        type: string
+      maintenanceOrder:
+        type: string
+      objectList:
+        items:
+          $ref: '#/definitions/models.ObjectListItemStatus'
+        type: array
+      operations:
+        items:
+          $ref: '#/definitions/models.OperationStatus'
+        type: array
+      plant:
+        type: string
+      status:
+        type: string
+    type: object
+  models.ObjectListItemStatus:
+    properties:
+      equipment:
+        type: string
+      functionalLocation:
+        type: string
+      material:
+        type: string
+      serialNumber:
+        type: string
+    type: object
+  models.OperationStatus:
+    properties:
+      actualWorkQuantity:
+        type: number
+      components:
+        items:
+          $ref: '#/definitions/models.ComponentStatus'
+        type: array
+      maintenanceOrderOperation:
+        type: string
+      status:
+        type: string
+      text:
+        type: string
+      workQuantityUnit:
+        type: string
+    type: object
+  models.SuccessResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: SAP Adaptor for Maintenance Order Event processing
+  title: SAP Adaptor API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      description: Check if the service is running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+      summary: Health Check
+      tags:
+      - System
+  /maintenance-done:
+    post:
+      consumes:
+      - application/json
+      description: Receives maintenance completion notification from SAP and forwards
+        it to Digital Twin
+      parameters:
+      - description: Maintenance Done Event
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.MaintenanceDoneEvent'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.SuccessResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Handle Maintenance Done Event
+      tags:
+      - Maintenance Events
+  /maintenance-orders:
+    post:
+      consumes:
+      - application/json
+      description: Creates a maintenance order in SAP based on equipment information
+        from Digital Twin
+      parameters:
+      - description: Maintenance Order Event
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.MaintenanceOrderEvent'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.MaintenanceOrderResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Create Maintenance Order Event
+      tags:
+      - Maintenance Orders
+  /maintenance-orders/{id}:
+    get:
+      description: Retrieves the current status and details of a maintenance order
+      parameters:
+      - description: Maintenance Order ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.MaintenanceOrderStatus'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.ErrorResponse'
+      summary: Get Maintenance Order Status
+      tags:
+      - Maintenance Orders
+  /metrics:
+    get:
+      description: Get service performance metrics
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get Service Metrics
+      tags:
+      - System
+swagger: "2.0"

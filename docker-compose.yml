@@ -40,7 +40,7 @@ services:
       - SAP_ADAPTOR_DIGITAL_TWIN_TIMEOUT=30
       - SAP_ADAPTOR_LOG_LEVEL=info
     volumes:
-      - ./logs:/app/logs
+      - logs:/app/logs  # Use named volume instead of bind mount
     depends_on:
       sap-simulator:
         condition: service_healthy
