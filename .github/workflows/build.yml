@@ -1,0 +1,96 @@
+name: Build & Push Docker Images
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:  # Allow manual trigger
+
+env:
+  DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+  REGISTRY: docker.io
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        # Buildx enables advanced features like multi-platform builds and better caching
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Extract metadata for SAP Adaptor
+        id: meta-adaptor
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/sap-adaptor
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+          # This creates tags like: latest, abc1234 (git sha), main
+
+      - name: Build and push SAP Adaptor
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: adaptor
+          push: true
+          tags: ${{ steps.meta-adaptor.outputs.tags }}
+          labels: ${{ steps.meta-adaptor.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/sap-adaptor:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/sap-adaptor:buildcache,mode=max
+          # Cache speeds up subsequent builds significantly
+
+      - name: Extract metadata for SAP Simulator
+        id: meta-simulator
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/sap-simulator
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=,format=short
+            type=ref,event=branch
+
+      - name: Build and push SAP Simulator
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          target: simulator
+          push: true
+          tags: ${{ steps.meta-simulator.outputs.tags }}
+          labels: ${{ steps.meta-simulator.outputs.labels }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/sap-simulator:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/sap-simulator:buildcache,mode=max
+
+      - name: Summary
+        run: |
+          echo "### 🐳 Docker Images Published" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SAP Adaptor:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta-adaptor.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SAP Simulator:**" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "${{ steps.meta-simulator.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Pull with:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/sap-adaptor:latest" >> $GITHUB_STEP_SUMMARY
+          echo "docker pull ${{ secrets.DOCKERHUB_USERNAME }}/sap-simulator:latest" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
