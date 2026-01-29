@@ -7,7 +7,8 @@ import (
 	"sap-adaptor/internal/sap"
 	"sap-adaptor/internal/services"
 
-	_ "sap-adaptor/docs" // This is required for swagger docs
+	// Swagger docs - comment out if not needed
+	// _ "sap-adaptor/docs"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
