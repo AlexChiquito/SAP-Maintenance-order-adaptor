@@ -155,15 +155,15 @@ func TestClient_GetOrder(t *testing.T) {
 		}
 
 		// Create response
-	resp := models.SAPOrderResponse{}
-	resp.D.MaintenanceOrder = "400000123"
-	resp.D.MaintenanceOrderType = "PM01"
-	resp.D.Description = "Test order"
-	resp.D.Equipment = "10000045"
-	resp.D.Plant = "1000"
-	resp.D.OrderStatus = "TECO"
-	resp.D.MaintenanceNotification = "200000123"
-	resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
+		resp := models.SAPOrderResponse{}
+		resp.D.MaintenanceOrder = "400000123"
+		resp.D.MaintenanceOrderType = "PM01"
+		resp.D.Description = "Test order"
+		resp.D.Equipment = "10000045"
+		resp.D.Plant = "1000"
+		resp.D.OrderStatus = "TECO"
+		resp.D.MaintenanceNotification = "200000123"
+		resp.D.ToMaintenanceOrderOperation.Results = []models.SAPOrderOperationResponse{}
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(resp)
 	}))

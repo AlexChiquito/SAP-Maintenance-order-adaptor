@@ -14,16 +14,16 @@ import (
 // MaintenanceHandler handles HTTP requests for maintenance operations
 type MaintenanceHandler struct {
 	maintenanceService *services.MaintenanceService
-	logger            *logrus.Logger
-	validator         *validator.Validate
+	logger             *logrus.Logger
+	validator          *validator.Validate
 }
 
 // NewMaintenanceHandler creates a new maintenance handler
 func NewMaintenanceHandler(maintenanceService *services.MaintenanceService, logger *logrus.Logger) *MaintenanceHandler {
 	return &MaintenanceHandler{
 		maintenanceService: maintenanceService,
-		logger:            logger,
-		validator:         validator.New(),
+		logger:             logger,
+		validator:          validator.New(),
 	}
 }
 
@@ -76,7 +76,7 @@ func (h *MaintenanceHandler) CreateMaintenanceOrder(c *gin.Context) {
 	}
 
 	h.logger.WithFields(logrus.Fields{
-		"maintenanceOrder":       response.MaintenanceOrder,
+		"maintenanceOrder":        response.MaintenanceOrder,
 		"maintenanceNotification": response.MaintenanceNotification,
 		"status":                  response.Status,
 	}).Info("Maintenance order created successfully")
@@ -222,9 +222,9 @@ func (h *MaintenanceHandler) GetMetrics(c *gin.Context) {
 	// Placeholder for metrics - in a real implementation, you would collect
 	// metrics about orders created, processing times, error rates, etc.
 	metrics := map[string]interface{}{
-		"service":     "sap-adaptor",
-		"version":     "1.0.0",
-		"uptime":      "running",
+		"service":        "sap-adaptor",
+		"version":        "1.0.0",
+		"uptime":         "running",
 		"orders_created": 0, // This would be tracked in a real implementation
 		"errors_total":   0, // This would be tracked in a real implementation
 	}

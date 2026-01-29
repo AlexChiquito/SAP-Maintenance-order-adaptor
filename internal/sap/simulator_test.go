@@ -97,37 +97,49 @@ func TestMockGenerator_CreateMockOrderResponse(t *testing.T) {
 func TestMockGenerator_CreateMockOrderStatusResponse(t *testing.T) {
 	generator := NewMockGenerator()
 
-	tests := []struct {
-		orderID        string
-		expectedStatus string
-	}{
-		{"4000000", "CRTD"},
-		{"4000001", "CRTD"},
-		{"4000002", "CRTD"},
-		{"4000003", "REL"},
-		{"4000004", "REL"},
-		{"4000005", "REL"},
-		{"4000006", "TECO"},
-		{"4000007", "TECO"},
-		{"4000008", "TECO"},
-		{"4000009", "CLSD"},
-	}
+	// Test 1: Unknown order should return CRTD
+	t.Run("UnknownOrder", func(t *testing.T) {
+		resp := generator.CreateMockOrderStatusResponse("UNKNOWN123")
+		if resp == nil {
+			t.Fatal("Expected response, got nil")
+		}
+		if resp.D.OrderStatus != "CRTD" {
+			t.Errorf("Expected status CRTD for unknown order, got %s", resp.D.OrderStatus)
+		}
+	})
 
-	for _, tt := range tests {
-		t.Run(tt.orderID, func(t *testing.T) {
-			resp := generator.CreateMockOrderStatusResponse(tt.orderID)
+	// Test 2: Time-based status progression
+	t.Run("TimeBasedProgression", func(t *testing.T) {
+		// Create an order first
+		req := &models.SAPOrderRequest{
+			MaintenanceOrderType:   "PM01",
+			Description:            "Test order",
+			Equipment:              "10000045",
+			FunctionalLocation:     "TEST-LOC",
+			Plant:                  "1000",
+			MaintenanceNotification: "200000123",
+		}
+		createResp := generator.CreateMockOrderResponse(req)
+		orderID := createResp.D.MaintenanceOrder
 
-			if resp == nil {
-				t.Fatal("Expected response, got nil")
-			}
+		// Immediately after creation - should be CRTD
+		statusResp := generator.CreateMockOrderStatusResponse(orderID)
+		if statusResp.D.OrderStatus != "CRTD" {
+			t.Errorf("Expected status CRTD immediately after creation, got %s", statusResp.D.OrderStatus)
+		}
 
-			if resp.D.MaintenanceOrder != tt.orderID {
-				t.Errorf("Expected order ID %s, got %s", tt.orderID, resp.D.MaintenanceOrder)
-			}
+		// Wait 11 seconds - should be REL
+		time.Sleep(11 * time.Second)
+		statusResp = generator.CreateMockOrderStatusResponse(orderID)
+		if statusResp.D.OrderStatus != "REL" {
+			t.Errorf("Expected status REL after 11 seconds, got %s", statusResp.D.OrderStatus)
+		}
 
-			if resp.D.OrderStatus != tt.expectedStatus {
-				t.Errorf("Expected status %s, got %s", tt.expectedStatus, resp.D.OrderStatus)
-			}
-		})
-	}
+		// Wait another 20 seconds (31 total) - should be TECO
+		time.Sleep(20 * time.Second)
+		statusResp = generator.CreateMockOrderStatusResponse(orderID)
+		if statusResp.D.OrderStatus != "TECO" {
+			t.Errorf("Expected status TECO after 31 seconds, got %s", statusResp.D.OrderStatus)
+		}
+	})
 }

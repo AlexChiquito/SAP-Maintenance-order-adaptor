@@ -17,18 +17,18 @@ import (
 
 // MaintenanceService handles maintenance order business logic
 type MaintenanceService struct {
-	sapClient        *sap.Client
-	logger           *logrus.Logger
-	digitalTwinURL   string
+	sapClient         *sap.Client
+	logger            *logrus.Logger
+	digitalTwinURL    string
 	digitalTwinAPIKey string
 }
 
 // NewMaintenanceService creates a new maintenance service
 func NewMaintenanceService(sapClient *sap.Client, logger *logrus.Logger) *MaintenanceService {
 	return &MaintenanceService{
-		sapClient:        sapClient,
-		logger:           logger,
-		digitalTwinURL:   "",  // Will be set from config
+		sapClient:         sapClient,
+		logger:            logger,
+		digitalTwinURL:    "", // Will be set from config
 		digitalTwinAPIKey: "", // Will be set from config
 	}
 }
@@ -88,7 +88,7 @@ func (s *MaintenanceService) ProcessMaintenanceOrderEvent(ctx context.Context, e
 
 	// Return success response
 	response := &models.MaintenanceOrderResponse{
-		MaintenanceOrder:       orderID,
+		MaintenanceOrder:        orderID,
 		MaintenanceNotification: notificationID,
 		Status:                  verifyResp.D.OrderStatus,
 		Message:                 "Maintenance order created successfully",
@@ -98,14 +98,14 @@ func (s *MaintenanceService) ProcessMaintenanceOrderEvent(ctx context.Context, e
 	// Start background polling to monitor order status
 	go func() {
 		s.logger.WithField("orderId", orderID).Info("Starting background monitoring for order")
-		
+
 		// Create a context for monitoring (will run indefinitely until TECO/CLSD or error)
 		monitorCtx := context.Background()
-		
+
 		err := s.MonitorOrderStatus(monitorCtx, orderID, func(status *models.MaintenanceOrderStatus) error {
 			return s.notifyDigitalTwin(status)
 		})
-		
+
 		if err != nil {
 			s.logger.WithFields(logrus.Fields{
 				"orderId": orderID,
@@ -153,13 +153,13 @@ func (s *MaintenanceService) HandleMaintenanceDoneEvent(ctx context.Context, eve
 
 	// Log the completion
 	s.logger.WithFields(logrus.Fields{
-		"orderId":        event.OrderID,
-		"status":         event.Status,
-		"completedAt":   event.CompletedAt,
+		"orderId":         event.OrderID,
+		"status":          event.Status,
+		"completedAt":     event.CompletedAt,
 		"actualWorkHours": event.ActualWorkHours,
-		"notes":          event.Notes,
-		"equipment":      orderStatus.Equipment,
-		"plant":          orderStatus.Plant,
+		"notes":           event.Notes,
+		"equipment":       orderStatus.Equipment,
+		"plant":           orderStatus.Plant,
 	}).Info("Maintenance completed successfully")
 
 	// TODO: Here you would typically send a notification back to the Digital Twin system
@@ -209,7 +209,7 @@ func (s *MaintenanceService) MonitorOrderStatus(ctx context.Context, orderID str
 			"orderId": orderID,
 			"status":  status.Status,
 		}).Info("Order still in progress, continuing monitoring")
-		
+
 		return fmt.Errorf("order not completed yet")
 	}
 
@@ -249,16 +249,16 @@ func (s *MaintenanceService) notifyDigitalTwin(status *models.MaintenanceOrderSt
 
 	// Build notification payload
 	notification := map[string]interface{}{
-		"maintenanceOrder":       status.MaintenanceOrder,
-		"status":                 status.Status,
-		"description":            status.Description,
-		"equipment":              status.Equipment,
-		"plant":                  status.Plant,
+		"maintenanceOrder":        status.MaintenanceOrder,
+		"status":                  status.Status,
+		"description":             status.Description,
+		"equipment":               status.Equipment,
+		"plant":                   status.Plant,
 		"maintenanceNotification": status.MaintenanceNotification,
-		"completedAt":            time.Now().Format(time.RFC3339),
-		"operations":             status.Operations,
+		"completedAt":             time.Now().Format(time.RFC3339),
+		"operations":              status.Operations,
 
-		"objectList":             status.ObjectList,
+		"objectList": status.ObjectList,
 	}
 
 	// Marshal to JSON
@@ -308,8 +308,8 @@ func (s *MaintenanceService) notifyDigitalTwin(status *models.MaintenanceOrderSt
 	}
 
 	s.logger.WithFields(logrus.Fields{
-		"endpoint":   endpoint,
-		"statusCode": resp.StatusCode,
+		"endpoint":         endpoint,
+		"statusCode":       resp.StatusCode,
 		"maintenanceOrder": status.MaintenanceOrder,
 	}).Info("Successfully notified Digital Twin")
 
