@@ -112,11 +112,11 @@ func TestMockGenerator_CreateMockOrderStatusResponse(t *testing.T) {
 	t.Run("TimeBasedProgression", func(t *testing.T) {
 		// Create an order first
 		req := &models.SAPOrderRequest{
-			MaintenanceOrderType:   "PM01",
-			Description:            "Test order",
-			Equipment:              "10000045",
-			FunctionalLocation:     "TEST-LOC",
-			Plant:                  "1000",
+			MaintenanceOrderType:    "PM01",
+			Description:             "Test order",
+			Equipment:               "10000045",
+			FunctionalLocation:      "TEST-LOC",
+			Plant:                   "1000",
 			MaintenanceNotification: "200000123",
 		}
 		createResp := generator.CreateMockOrderResponse(req)
