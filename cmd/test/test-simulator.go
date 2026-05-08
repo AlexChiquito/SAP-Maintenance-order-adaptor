@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sap-adaptor/internal/models"
+	"strings"
 	"time"
 )
 
@@ -28,8 +29,17 @@ func main() {
 	if adaptorURL == "" {
 		adaptorURL = "http://localhost:8080"
 	}
+	simulatorURL := os.Getenv("SAP_SIMULATOR_URL")
+	if simulatorURL == "" {
+		simulatorURL = "http://localhost:8081"
+	}
+	plannerDemo := strings.EqualFold(os.Getenv("SAP_PLANNER_ENRICHMENT_DEMO"), "true")
 
 	fmt.Printf("Using SAP Adaptor at: %s\n", adaptorURL)
+	if plannerDemo {
+		fmt.Printf("Using SAP Simulator at: %s\n", simulatorURL)
+		fmt.Println("Planner enrichment demo mode: enabled")
+	}
 	fmt.Println("(Make sure SAP Adaptor and Simulator are running)")
 	fmt.Println("")
 
@@ -39,9 +49,6 @@ func main() {
 	if err != nil {
 		fmt.Printf("ERROR: SAP Adaptor not reachable: %v\n", err)
 		fmt.Println("   Start it with:")
-		fmt.Println("   SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \\")
-		fmt.Println("   SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \\")
-		fmt.Println("   SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \\")
 		fmt.Println("   ./bin/sap-adaptor")
 		os.Exit(1)
 	}
@@ -70,7 +77,10 @@ func main() {
 		MaintenanceOrderType: "PM01",
 		PlannedStartTime:     &startTime,
 		PlannedEndTime:       &endTime,
-		Operations: []models.MaintenanceOperation{
+	}
+
+	if !plannerDemo {
+		event.Operations = []models.MaintenanceOperation{
 			{
 				Text:         "check pump condition and fix",
 				WorkCenter:   "PUMP-WC01",
@@ -83,7 +93,7 @@ func main() {
 				Duration:     6,
 				DurationUnit: "H",
 			},
-		},
+		}
 	}
 
 	prettyPrintJSON("Digital Twin → SAP Adaptor (MaintenanceOrderEvent)", event)
@@ -159,17 +169,58 @@ func main() {
 	fmt.Printf("   Description: %v\n", statusData["description"])
 	fmt.Println("")
 
+	if plannerDemo {
+		fmt.Println("4. Planner Enriches the SAP Simulator Order...")
+		fmt.Println("   Planner → SAP Simulator: POST /planner/orders/{maintenanceOrder}/enrich")
+		fmt.Println("")
+
+		enrichment := plannerEnrichmentPayload()
+		prettyPrintJSON("Planner → SAP Simulator (PlannerEnrichmentRequest)", enrichment)
+
+		enrichmentBody, _ := json.Marshal(enrichment)
+		enrichResp, err := http.Post(
+			simulatorURL+"/planner/orders/"+orderID+"/enrich",
+			"application/json",
+			bytes.NewBuffer(enrichmentBody),
+		)
+		if err != nil {
+			fmt.Printf("ERROR: Failed to enrich order: %v\n", err)
+			os.Exit(1)
+		}
+		defer enrichResp.Body.Close()
+
+		enrichRespBody, _ := io.ReadAll(enrichResp.Body)
+		var enrichResult map[string]interface{}
+		json.Unmarshal(enrichRespBody, &enrichResult)
+		prettyPrintJSON("SAP Simulator → Planner (Enrichment Response)", enrichResult)
+
+		if enrichResp.StatusCode != http.StatusOK {
+			fmt.Printf("ERROR: Enrichment failed with HTTP %d\n", enrichResp.StatusCode)
+			os.Exit(1)
+		}
+
+		fmt.Println("")
+		fmt.Println("   Status behavior now follows planner-enrichment flow:")
+		fmt.Println("      • Before enrichment: CRTD")
+		fmt.Println("      • After enrichment:  REL")
+		fmt.Println("      • 30+ seconds:       TECO")
+		fmt.Println("")
+	} else {
+		fmt.Println("4. Background Monitoring Active...")
+	}
+
 	// Explain background monitoring
-	fmt.Println("4. Background Monitoring Active...")
 	fmt.Println("   SAP Adaptor is now polling this order automatically:")
 	fmt.Println("      • Every few seconds: GET /API_MAINTENANCE_ORDER/A_MaintenanceOrder('{orderID}')")
 	fmt.Println("      • Checks order status progression")
 	fmt.Println("")
-	fmt.Println("   Time-based status progression (For simulation):")
-	fmt.Println("      • 0-10 seconds:  CRTD (Created)")
-	fmt.Println("      • 10-30 seconds: REL (Released)")
-	fmt.Println("      • 30+ seconds:   TECO (Completed)")
-	fmt.Println("")
+	if !plannerDemo {
+		fmt.Println("   Time-based status progression (For simulation):")
+		fmt.Println("      • 0-10 seconds:  CRTD (Created)")
+		fmt.Println("      • 10-30 seconds: REL (Released)")
+		fmt.Println("      • 30+ seconds:   TECO (Completed)")
+		fmt.Println("")
+	}
 	fmt.Println("   When TECO is reached, adaptor will POST to:")
 	fmt.Println("      → Digital Twin: /api/v1/maintenance-completed")
 	fmt.Println("")
@@ -241,10 +292,93 @@ func main() {
 	fmt.Println("2. SAP Adaptor → SAP:")
 	fmt.Println("   a) Create Notification → Get notification number")
 	fmt.Println("   b) Create Order (with notification reference)")
-	fmt.Println("3. SAP Adaptor starts background polling")
-	fmt.Println("4. Time-based status progression (CRTD → REL → TECO)")
-	fmt.Println("5. SAP Adaptor detects TECO and sends notification to Digital Twin")
-	fmt.Println("6. Equipment replacement data available in final order")
+	if plannerDemo {
+		fmt.Println("3. Planner → SAP Simulator enrichment (operations, actual hours, materials)")
+		fmt.Println("4. Planner-based status progression (CRTD → REL → TECO)")
+		fmt.Println("5. SAP Adaptor detects TECO and sends notification to Digital Twin")
+		fmt.Println("6. Planner-provided operations and materials available in final order")
+	} else {
+		fmt.Println("3. SAP Adaptor starts background polling")
+		fmt.Println("4. Time-based status progression (CRTD → REL → TECO)")
+		fmt.Println("5. SAP Adaptor detects TECO and sends notification to Digital Twin")
+		fmt.Println("6. Equipment replacement data available in final order")
+	}
 	fmt.Println("")
 	fmt.Println("Note: Check your Digital Twin callback listener for the notification!")
+}
+
+func plannerEnrichmentPayload() *models.PlannerEnrichmentRequest {
+	finalIssue := true
+	return &models.PlannerEnrichmentRequest{
+		PlannedStartDateTime: time.Now().Add(1 * time.Hour).Format(time.RFC3339),
+		PlannedEndDateTime:   time.Now().Add(9 * time.Hour).Format(time.RFC3339),
+		MainWorkCenter:       "MECH-01",
+		MainWorkCenterPlant:  "2000",
+		Operations: []models.EnrichedOperation{
+			{
+				Operation:           "0010",
+				ControlKey:          "PM01",
+				Description:         "Disassemble pump",
+				WorkCenter:          "MECH-01",
+				Plant:               "2000",
+				PlannedWorkQuantity: "4.0",
+				ActualWorkQuantity:  "4.5",
+				WorkQuantityUnit:    "H",
+				ActualStartDateTime: time.Now().Add(-7 * time.Hour).Format(time.RFC3339),
+				ActualEndDateTime:   time.Now().Add(-2*time.Hour - 30*time.Minute).Format(time.RFC3339),
+				Components: []models.EnrichedComponent{
+					{
+						Component:         "0001",
+						Material:          "SEAL-X200",
+						Description:       "Pump seal",
+						RequiredQuantity:  "1.000",
+						UsedQuantity:      "1.000",
+						Unit:              "EA",
+						Plant:             "2000",
+						StorageLocation:   "0001",
+						GoodsMovementType: "261",
+						FinalIssue:        &finalIssue,
+					},
+				},
+			},
+			{
+				Operation:           "0020",
+				ControlKey:          "PM01",
+				Description:         "Replace seal and reassemble",
+				WorkCenter:          "MECH-01",
+				Plant:               "2000",
+				PlannedWorkQuantity: "3.0",
+				ActualWorkQuantity:  "2.5",
+				WorkQuantityUnit:    "H",
+				ActualStartDateTime: time.Now().Add(-2*time.Hour - 15*time.Minute).Format(time.RFC3339),
+				ActualEndDateTime:   time.Now().Add(-15 * time.Minute).Format(time.RFC3339),
+				Components: []models.EnrichedComponent{
+					{
+						Component:         "0002",
+						Material:          "BEARING-KIT",
+						Description:       "Bearing replacement kit",
+						RequiredQuantity:  "1.000",
+						UsedQuantity:      "1.000",
+						Unit:              "EA",
+						Plant:             "2000",
+						StorageLocation:   "0001",
+						GoodsMovementType: "261",
+						FinalIssue:        &finalIssue,
+					},
+					{
+						Component:         "0003",
+						Material:          "LUBE-GREASE",
+						Description:       "Assembly grease",
+						RequiredQuantity:  "0.250",
+						UsedQuantity:      "0.300",
+						Unit:              "KG",
+						Plant:             "2000",
+						StorageLocation:   "0001",
+						GoodsMovementType: "261",
+						FinalIssue:        &finalIssue,
+					},
+				},
+			},
+		},
+	}
 }

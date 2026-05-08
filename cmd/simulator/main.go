@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"flag"
 	"net/http"
 	"os"
 	"regexp"
@@ -19,6 +21,9 @@ var (
 )
 
 func main() {
+	plannerInputFlag := flag.String("planner-input", "", "planner input mode: set to required to make orders wait for planner enrichment")
+	flag.Parse()
+
 	// Initialize logger
 	logger = logrus.New()
 	logger.SetLevel(logrus.InfoLevel)
@@ -28,6 +33,8 @@ func main() {
 
 	// Initialize mock generator
 	mockGenerator = sap.NewMockGenerator()
+	plannerInputRequired := plannerInputModeRequired(*plannerInputFlag, os.Getenv("SAP_SIMULATOR_PLANNER_INPUT"))
+	mockGenerator.SetPlannerInputRequired(plannerInputRequired)
 
 	// Get port from environment or use default
 	port := os.Getenv("SAP_SIMULATOR_PORT")
@@ -38,18 +45,30 @@ func main() {
 	// Setup HTTP routes
 	http.HandleFunc("/API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification", handleCreateNotification)
 	http.HandleFunc("/API_MAINTENANCE_ORDER/", handleMaintenanceOrder)
+	http.HandleFunc("/planner/orders/", handlePlannerOrder)
 	http.HandleFunc("/health", handleHealth)
 
-	logger.WithField("port", port).Info("🚀 SAP Simulator starting")
+	logger.WithFields(logrus.Fields{
+		"port":                 port,
+		"plannerInputRequired": plannerInputRequired,
+	}).Info("🚀 SAP Simulator starting")
 	logger.Info("Available endpoints:")
 	logger.Info("  POST /API_MAINTENANCE_NOTIFICATION/A_MaintenanceNotification")
 	logger.Info("  POST /API_MAINTENANCE_ORDER/A_MaintenanceOrder")
 	logger.Info("  GET  /API_MAINTENANCE_ORDER/A_MaintenanceOrder('...')")
+	logger.Info("  POST /planner/orders/{maintenanceOrder}/enrich")
 	logger.Info("  GET  /health")
 
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		logger.WithError(err).Fatal("Failed to start server")
 	}
+}
+
+func plannerInputModeRequired(flagValue, envValue string) bool {
+	if flagValue != "" {
+		return strings.EqualFold(flagValue, "required")
+	}
+	return strings.EqualFold(envValue, "required")
 }
 
 // handleCreateNotification handles notification creation requests
@@ -158,6 +177,54 @@ func handleGetOrder(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// handlePlannerOrder handles planner-owned simulator endpoints.
+func handlePlannerOrder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSONError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", "Method not allowed")
+		return
+	}
+
+	orderID := extractPlannerEnrichmentOrderID(r.URL.Path)
+	if orderID == "" {
+		writeJSONError(w, http.StatusNotFound, "NOT_FOUND", "Planner endpoint not found")
+		return
+	}
+
+	var req models.PlannerEnrichmentRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		logger.WithError(err).Error("Failed to parse planner enrichment request")
+		writeJSONError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid request body")
+		return
+	}
+
+	resp, err := mockGenerator.EnrichOrder(orderID, &req)
+	if err != nil {
+		switch {
+		case errors.Is(err, sap.ErrPlannerInputDisabled):
+			writeJSONError(w, http.StatusConflict, "PLANNER_INPUT_DISABLED", "Planner input mode is not enabled")
+		case errors.Is(err, sap.ErrOrderNotFound):
+			writeJSONError(w, http.StatusNotFound, "ORDER_NOT_FOUND", "Maintenance order not found")
+		case errors.Is(err, sap.ErrOrderAlreadyEnriched):
+			writeJSONError(w, http.StatusConflict, "ORDER_ALREADY_ENRICHED", "Maintenance order already enriched")
+		case errors.Is(err, sap.ErrInvalidEnrichment):
+			writeJSONError(w, http.StatusBadRequest, "INVALID_ENRICHMENT", "Invalid planner enrichment request")
+		default:
+			logger.WithError(err).Error("Failed to enrich maintenance order")
+			writeJSONError(w, http.StatusInternalServerError, "INTERNAL_ERROR", "Failed to enrich maintenance order")
+		}
+		return
+	}
+
+	logger.WithFields(logrus.Fields{
+		"orderId":    orderID,
+		"operations": len(resp.Operations),
+	}).Info("✅ Maintenance order enriched by planner")
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(resp)
+}
+
 // handleHealth handles health check requests
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
@@ -167,6 +234,16 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func writeJSONError(w http.ResponseWriter, status int, code, message string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(models.ErrorResponse{
+		Error:   code,
+		Message: message,
+		Code:    code,
+	})
 }
 
 // extractOrderID extracts the order ID from the URL path
@@ -189,5 +266,15 @@ func extractOrderID(path string) string {
 		return strings.TrimPrefix(path[idx:], "A_MaintenanceOrder/")
 	}
 
+	return ""
+}
+
+func extractPlannerEnrichmentOrderID(path string) string {
+	path = strings.TrimSuffix(path, "/")
+	re := regexp.MustCompile(`^/planner/orders/([^/]+)/enrich$`)
+	matches := re.FindStringSubmatch(path)
+	if len(matches) > 1 {
+		return matches[1]
+	}
 	return ""
 }

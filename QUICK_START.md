@@ -12,6 +12,8 @@ cd "SAP Adaptor"
 ```
 
 The SAP Adaptor will be running on `http://localhost:8080`
+Local simulator default: `http://localhost:8081`
+Local callback listener default: `http://localhost:8082`
 
 ## Configuration
 
@@ -26,7 +28,7 @@ Edit `.env` file to configure:
 - **Real SAP**: Set `SAP_ADAPTOR_SAP_SIMULATOR_MODE=false` and configure credentials
 
 ### Digital Twin Integration
-- `SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL` - Your Digital Twin API URL
+- `SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL` - Default local callback URL is `http://localhost:8082`
 - `SAP_ADAPTOR_DIGITAL_TWIN_API_KEY` - API key for authentication
 
 ## API Endpoints

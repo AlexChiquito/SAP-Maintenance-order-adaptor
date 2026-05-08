@@ -1,0 +1,457 @@
+openapi: 3.0.3
+info:
+  title: Planner to SAP Simulator API
+  version: 0.2.0
+  description: |
+    Interface used by the planner to enrich a maintenance order in the SAP
+    Simulator.
+
+    This specification intentionally exposes only one operation:
+    POST /planner/orders/{maintenanceOrder}/enrich
+
+    The payload is simplified for planner use, while keeping SAP-oriented field
+    names where they help preserve the meaning of the data. It does not expose
+    SAP OData entity paths, navigation properties, response wrappers, or $expand
+    semantics.
+
+    The planner can provide:
+    - planned operations and planned work
+    - planned material requirements
+    - optional actual work and actual execution timestamps
+
+    Simulator behavior:
+    - The target maintenance order must already exist.
+    - If the order is in CRTD and enrichment contains the required planning
+      data, the simulator may release it and return status REL.
+    - Actual hours are represented with actualWorkQuantity and
+      workQuantityUnit. In SAP this typically corresponds to confirmed actual
+      work on the maintenance order operation.
+servers:
+  - url: http://localhost:8081
+    description: Local SAP Simulator
+tags:
+  - name: Planner Enrichment
+paths:
+  /planner/orders/{maintenanceOrder}/enrich:
+    post:
+      tags: [Planner Enrichment]
+      summary: Enrich maintenance order planning data
+      description: |
+        Adds or replaces planner-owned enrichment data for an existing
+        maintenance order.
+
+        The request uses simplified JSON with SAP-inspired field names. Operation
+        and component identifiers are optional; if omitted, the simulator may
+        assign SAP-style sequence numbers such as 0010 for operations and 0001
+        for components.
+      operationId: enrichMaintenanceOrder
+      parameters:
+        - name: maintenanceOrder
+          in: path
+          required: true
+          description: SAP maintenance order number.
+          schema:
+            type: string
+            maxLength: 12
+          example: "400000586"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlannerEnrichmentRequest'
+            examples:
+              plannedOperations:
+                summary: Planned operations and materials
+                value:
+                  plannedStartDateTime: "2025-10-21T08:00:00Z"
+                  plannedEndDateTime: "2025-10-21T16:00:00Z"
+                  mainWorkCenter: "MECH-01"
+                  mainWorkCenterPlant: "1000"
+                  operations:
+                    - operation: "0010"
+                      controlKey: "PM01"
+                      description: "Disassemble pump"
+                      workCenter: "MECH-01"
+                      plant: "1000"
+                      plannedWorkQuantity: "4.0"
+                      workQuantityUnit: "H"
+                      components:
+                        - component: "0001"
+                          material: "SEAL-X200"
+                          description: "Pump seal"
+                          requiredQuantity: "1.000"
+                          unit: "EA"
+                          plant: "1000"
+                          storageLocation: "0001"
+                          goodsMovementType: "261"
+                    - operation: "0020"
+                      controlKey: "PM01"
+                      description: "Replace seal"
+                      workCenter: "MECH-01"
+                      plant: "1000"
+                      plannedWorkQuantity: "3.0"
+                      workQuantityUnit: "H"
+                      components:
+                        - component: "0002"
+                          material: "BEARING-KIT"
+                          description: "Bearing replacement kit"
+                          requiredQuantity: "1.000"
+                          unit: "EA"
+                          plant: "1000"
+                          storageLocation: "0001"
+                          goodsMovementType: "261"
+              actualHoursAndMaterialsUsed:
+                summary: Planned data with actual hours and materials used
+                value:
+                  plannedStartDateTime: "2025-10-21T08:00:00Z"
+                  plannedEndDateTime: "2025-10-21T16:00:00Z"
+                  mainWorkCenter: "MECH-01"
+                  mainWorkCenterPlant: "1000"
+                  operations:
+                    - operation: "0010"
+                      controlKey: "PM01"
+                      description: "Disassemble pump"
+                      workCenter: "MECH-01"
+                      plant: "1000"
+                      plannedWorkQuantity: "4.0"
+                      actualWorkQuantity: "4.5"
+                      workQuantityUnit: "H"
+                      actualStartDateTime: "2025-10-21T08:00:00Z"
+                      actualEndDateTime: "2025-10-21T12:30:00Z"
+                      noRemainingWork: true
+                      components:
+                        - component: "0001"
+                          material: "SEAL-X200"
+                          description: "Pump seal"
+                          requiredQuantity: "1.000"
+                          usedQuantity: "1.000"
+                          unit: "EA"
+                          plant: "1000"
+                          storageLocation: "0001"
+                          goodsMovementType: "261"
+                          finalIssue: true
+                    - operation: "0020"
+                      controlKey: "PM01"
+                      description: "Replace seal and reassemble"
+                      workCenter: "MECH-01"
+                      plant: "1000"
+                      plannedWorkQuantity: "3.0"
+                      actualWorkQuantity: "2.5"
+                      workQuantityUnit: "H"
+                      actualStartDateTime: "2025-10-21T12:45:00Z"
+                      actualEndDateTime: "2025-10-21T15:15:00Z"
+                      noRemainingWork: true
+                      components:
+                        - component: "0002"
+                          material: "BEARING-KIT"
+                          description: "Bearing replacement kit"
+                          requiredQuantity: "1.000"
+                          usedQuantity: "1.000"
+                          unit: "EA"
+                          plant: "1000"
+                          storageLocation: "0001"
+                          goodsMovementType: "261"
+                          finalIssue: true
+                        - component: "0003"
+                          material: "LUBE-GREASE"
+                          description: "Assembly grease"
+                          requiredQuantity: "0.250"
+                          usedQuantity: "0.300"
+                          unit: "KG"
+                          plant: "1000"
+                          storageLocation: "0001"
+                          goodsMovementType: "261"
+                          finalIssue: true
+      responses:
+        '200':
+          description: Maintenance order enriched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlannerEnrichmentResponse'
+              examples:
+                enriched:
+                  value:
+                    maintenanceOrder: "400000586"
+                    status: "REL"
+                    message: "Maintenance order enriched successfully"
+                    enrichedAt: "2025-10-20T10:39:46Z"
+                    operations:
+                      - operation: "0010"
+                        status: "REL"
+                      - operation: "0020"
+                        status: "REL"
+        '400':
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Maintenance order not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Maintenance order is not in a state that can be enriched
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    PlannerEnrichmentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - operations
+      properties:
+        plannedStartDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Planned basic start date and time for the order.
+          example: "2025-10-21T08:00:00Z"
+        plannedEndDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Planned basic end date and time for the order.
+          example: "2025-10-21T16:00:00Z"
+        mainWorkCenter:
+          type: string
+          maxLength: 8
+          nullable: true
+          description: Main work center for the maintenance order.
+          example: "MECH-01"
+        mainWorkCenterPlant:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Plant for the main work center.
+          example: "1000"
+        maintenancePlannerGroup:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: SAP maintenance planner group.
+          example: "M01"
+        operations:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/EnrichedOperation'
+
+    EnrichedOperation:
+      type: object
+      additionalProperties: false
+      required:
+        - description
+        - workCenter
+        - plant
+        - plannedWorkQuantity
+        - workQuantityUnit
+      properties:
+        operation:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: SAP maintenance order operation number.
+          example: "0010"
+        controlKey:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: SAP operation control key.
+          example: "PM01"
+        description:
+          type: string
+          maxLength: 40
+          description: Operation short text.
+          example: "Disassemble pump"
+        workCenter:
+          type: string
+          maxLength: 8
+          description: Work center responsible for the operation.
+          example: "MECH-01"
+        plant:
+          type: string
+          maxLength: 4
+          description: Plant for the work center.
+          example: "1000"
+        plannedDuration:
+          type: string
+          pattern: '^-?\d+(\.\d{1})?$'
+          nullable: true
+          description: Planned operation duration as a decimal string.
+          example: "4.0"
+        durationUnit:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: Unit for plannedDuration.
+          example: "H"
+        plannedWorkQuantity:
+          type: string
+          pattern: '^-?\d+(\.\d{1,3})?$'
+          description: Planned work quantity as a decimal string.
+          example: "4.0"
+        actualWorkQuantity:
+          type: string
+          pattern: '^-?\d+(\.\d{1,3})?$'
+          nullable: true
+          description: Actual work quantity, usually actual hours when unit is H.
+          example: "4.5"
+        workQuantityUnit:
+          type: string
+          maxLength: 3
+          description: Unit for planned and actual work quantity.
+          example: "H"
+        scheduledStartDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Planned or scheduled operation start.
+          example: "2025-10-21T08:00:00Z"
+        scheduledEndDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Planned or scheduled operation end.
+          example: "2025-10-21T12:00:00Z"
+        actualStartDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Actual operation execution start.
+          example: "2025-10-21T08:00:00Z"
+        actualEndDateTime:
+          type: string
+          format: date-time
+          nullable: true
+          description: Actual operation execution end.
+          example: "2025-10-21T12:30:00Z"
+        noRemainingWork:
+          type: boolean
+          nullable: true
+          description: Indicates that no remaining work is expected.
+          example: true
+        components:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnrichedComponent'
+
+    EnrichedComponent:
+      type: object
+      additionalProperties: false
+      required:
+        - material
+        - requiredQuantity
+        - unit
+        - plant
+      properties:
+        component:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: SAP maintenance order component item number.
+          example: "0001"
+        material:
+          type: string
+          maxLength: 40
+          description: SAP material number.
+          example: "SEAL-X200"
+        description:
+          type: string
+          maxLength: 40
+          nullable: true
+          description: Component short text.
+          example: "Pump seal"
+        requiredQuantity:
+          type: string
+          pattern: '^-?\d+(\.\d{1,3})?$'
+          description: Required component quantity as a decimal string.
+          example: "1.000"
+        usedQuantity:
+          type: string
+          pattern: '^-?\d+(\.\d{1,3})?$'
+          nullable: true
+          description: Actual material quantity used or issued for the operation.
+          example: "1.000"
+        unit:
+          type: string
+          maxLength: 3
+          description: Base unit of measure.
+          example: "EA"
+        plant:
+          type: string
+          maxLength: 4
+          description: Component plant.
+          example: "1000"
+        storageLocation:
+          type: string
+          maxLength: 4
+          nullable: true
+          description: Storage location for the component.
+          example: "0001"
+        itemCategory:
+          type: string
+          maxLength: 1
+          nullable: true
+          description: SAP component item category. L is commonly used for stock items.
+          example: "L"
+        goodsMovementType:
+          type: string
+          maxLength: 3
+          nullable: true
+          description: SAP goods movement type. 261 is goods issue for order.
+          example: "261"
+        finalIssue:
+          type: boolean
+          nullable: true
+          description: Indicates final issue for the reservation/component.
+          example: false
+
+    PlannerEnrichmentResponse:
+      type: object
+      properties:
+        maintenanceOrder:
+          type: string
+          maxLength: 12
+          example: "400000586"
+        status:
+          type: string
+          description: Current simulator order status, for example CRTD, REL, TECO, or CLSD.
+          example: "REL"
+        message:
+          type: string
+          example: "Maintenance order enriched successfully"
+        enrichedAt:
+          type: string
+          format: date-time
+          example: "2025-10-20T10:39:46Z"
+        operations:
+          type: array
+          items:
+            type: object
+            properties:
+              operation:
+                type: string
+                maxLength: 4
+                example: "0010"
+              status:
+                type: string
+                example: "REL"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          example: "ORDER_NOT_FOUND"
+        message:
+          type: string
+          example: "Maintenance order not found"

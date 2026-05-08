@@ -87,6 +87,66 @@ type MaintenanceDoneEvent struct {
 	Notes           string     `json:"notes,omitempty"`
 }
 
+// PlannerEnrichmentRequest represents planner-provided data for an existing simulator order.
+type PlannerEnrichmentRequest struct {
+	PlannedStartDateTime    string              `json:"plannedStartDateTime,omitempty"`
+	PlannedEndDateTime      string              `json:"plannedEndDateTime,omitempty"`
+	MainWorkCenter          string              `json:"mainWorkCenter,omitempty"`
+	MainWorkCenterPlant     string              `json:"mainWorkCenterPlant,omitempty"`
+	MaintenancePlannerGroup string              `json:"maintenancePlannerGroup,omitempty"`
+	Operations              []EnrichedOperation `json:"operations"`
+}
+
+// EnrichedOperation represents planner-provided operation planning and optional actual work.
+type EnrichedOperation struct {
+	Operation              string              `json:"operation,omitempty"`
+	ControlKey             string              `json:"controlKey,omitempty"`
+	Description            string              `json:"description"`
+	WorkCenter             string              `json:"workCenter"`
+	Plant                  string              `json:"plant"`
+	PlannedDuration        string              `json:"plannedDuration,omitempty"`
+	DurationUnit           string              `json:"durationUnit,omitempty"`
+	PlannedWorkQuantity    string              `json:"plannedWorkQuantity"`
+	ActualWorkQuantity     string              `json:"actualWorkQuantity,omitempty"`
+	WorkQuantityUnit       string              `json:"workQuantityUnit"`
+	ScheduledStartDateTime string              `json:"scheduledStartDateTime,omitempty"`
+	ScheduledEndDateTime   string              `json:"scheduledEndDateTime,omitempty"`
+	ActualStartDateTime    string              `json:"actualStartDateTime,omitempty"`
+	ActualEndDateTime      string              `json:"actualEndDateTime,omitempty"`
+	NoRemainingWork        *bool               `json:"noRemainingWork,omitempty"`
+	Components             []EnrichedComponent `json:"components,omitempty"`
+}
+
+// EnrichedComponent represents planner-provided material requirements and optional actual use.
+type EnrichedComponent struct {
+	Component         string `json:"component,omitempty"`
+	Material          string `json:"material"`
+	Description       string `json:"description,omitempty"`
+	RequiredQuantity  string `json:"requiredQuantity"`
+	UsedQuantity      string `json:"usedQuantity,omitempty"`
+	Unit              string `json:"unit"`
+	Plant             string `json:"plant"`
+	StorageLocation   string `json:"storageLocation,omitempty"`
+	ItemCategory      string `json:"itemCategory,omitempty"`
+	GoodsMovementType string `json:"goodsMovementType,omitempty"`
+	FinalIssue        *bool  `json:"finalIssue,omitempty"`
+}
+
+// PlannerEnrichmentResponse represents the simulator response after enrichment.
+type PlannerEnrichmentResponse struct {
+	MaintenanceOrder string                            `json:"maintenanceOrder"`
+	Status           string                            `json:"status"`
+	Message          string                            `json:"message"`
+	EnrichedAt       time.Time                         `json:"enrichedAt"`
+	Operations       []PlannerEnrichmentOperationState `json:"operations,omitempty"`
+}
+
+// PlannerEnrichmentOperationState represents operation status in the enrichment response.
+type PlannerEnrichmentOperationState struct {
+	Operation string `json:"operation"`
+	Status    string `json:"status"`
+}
+
 // SAP Notification Request
 type SAPNotificationRequest struct {
 	NotificationType   string `json:"NotificationType"`
@@ -159,17 +219,19 @@ type SAPOrderResponse struct {
 
 // SAP Order Operation Response
 type SAPOrderOperationResponse struct {
-	MaintenanceOrder          string `json:"MaintenanceOrder"`
-	MaintenanceOrderOperation string `json:"MaintenanceOrderOperation"`
-	OperationText             string `json:"OperationText"`
-	WorkCenter                string `json:"WorkCenter"`
-	OperationControlKey       string `json:"OperationControlKey"`
-	OperationStandardDuration string `json:"OperationStandardDuration"`
-	OperationDurationUnit     string `json:"OperationDurationUnit"`
-	OperationStatus           string `json:"OperationStatus,omitempty"`
-	ActualWorkQuantity        string `json:"ActualWorkQuantity,omitempty"`
-	WorkQuantityUnit          string `json:"WorkQuantityUnit,omitempty"`
-	Metadata                  struct {
+	MaintenanceOrder               string `json:"MaintenanceOrder"`
+	MaintenanceOrderOperation      string `json:"MaintenanceOrderOperation"`
+	OperationText                  string `json:"OperationText"`
+	WorkCenter                     string `json:"WorkCenter"`
+	OperationControlKey            string `json:"OperationControlKey"`
+	OperationStandardDuration      string `json:"OperationStandardDuration"`
+	OperationDurationUnit          string `json:"OperationDurationUnit"`
+	OperationStatus                string `json:"OperationStatus,omitempty"`
+	ActualWorkQuantity             string `json:"ActualWorkQuantity,omitempty"`
+	WorkQuantityUnit               string `json:"WorkQuantityUnit,omitempty"`
+	OpActualExecutionStartDateTime string `json:"OpActualExecutionStartDateTime,omitempty"`
+	OpActualExecutionEndDateTime   string `json:"OpActualExecutionEndDateTime,omitempty"`
+	Metadata                       struct {
 		ID   string `json:"id"`
 		URI  string `json:"uri"`
 		Type string `json:"type"`
@@ -223,6 +285,7 @@ type SAPObjectListItemResponse struct {
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error   string      `json:"error"`
+	Message string      `json:"message,omitempty"`
 	Code    string      `json:"code,omitempty"`
 	Details interface{} `json:"details,omitempty"`
 }

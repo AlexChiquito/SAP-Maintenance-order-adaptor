@@ -1,6 +1,7 @@
 package sap
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -11,22 +12,55 @@ import (
 
 // StoredOrder holds the original order request data
 type StoredOrder struct {
-	Request   *models.SAPOrderRequest
-	OrderID   string
-	CreatedAt time.Time
+	Request    *models.SAPOrderRequest
+	OrderID    string
+	CreatedAt  time.Time
+	Enrichment *models.PlannerEnrichmentRequest
+	EnrichedAt *time.Time
 }
+
+var (
+	ErrPlannerInputDisabled = errors.New("planner input mode is not enabled")
+	ErrOrderNotFound        = errors.New("maintenance order not found")
+	ErrOrderAlreadyEnriched = errors.New("maintenance order already enriched")
+	ErrInvalidEnrichment    = errors.New("invalid planner enrichment request")
+)
 
 // MockGenerator provides functions to generate mock SAP responses
 type MockGenerator struct {
-	orderStore map[string]*StoredOrder
-	mu         sync.RWMutex
+	orderStore           map[string]*StoredOrder
+	plannerInputRequired bool
+	plannerTECODelay     time.Duration
+	mu                   sync.RWMutex
 }
 
 // NewMockGenerator creates a new mock generator
 func NewMockGenerator() *MockGenerator {
 	return &MockGenerator{
-		orderStore: make(map[string]*StoredOrder),
+		orderStore:       make(map[string]*StoredOrder),
+		plannerTECODelay: 30 * time.Second,
 	}
+}
+
+// SetPlannerInputRequired configures whether orders must wait for planner enrichment.
+func (g *MockGenerator) SetPlannerInputRequired(required bool) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.plannerInputRequired = required
+}
+
+// PlannerInputRequired returns whether planner-input mode is active.
+func (g *MockGenerator) PlannerInputRequired() bool {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	return g.plannerInputRequired
+}
+
+// SetPlannerTECODelay configures the delay from enrichment to TECO.
+func (g *MockGenerator) SetPlannerTECODelay(delay time.Duration) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.plannerTECODelay = delay
 }
 
 // CreateMockNotificationResponse creates a mock notification response for simulator mode
@@ -104,6 +138,53 @@ func (g *MockGenerator) CreateMockOrderResponse(req *models.SAPOrderRequest) *mo
 	return resp
 }
 
+// EnrichOrder stores planner-provided operations, components, and optional actuals for an order.
+func (g *MockGenerator) EnrichOrder(orderID string, req *models.PlannerEnrichmentRequest) (*models.PlannerEnrichmentResponse, error) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if !g.plannerInputRequired {
+		return nil, ErrPlannerInputDisabled
+	}
+
+	if err := validatePlannerEnrichment(req); err != nil {
+		return nil, err
+	}
+
+	storedOrder := g.orderStore[orderID]
+	if storedOrder == nil {
+		return nil, ErrOrderNotFound
+	}
+
+	if storedOrder.Enrichment != nil {
+		return nil, ErrOrderAlreadyEnriched
+	}
+
+	enrichedAt := time.Now()
+	storedOrder.Enrichment = normalizePlannerEnrichment(req)
+	storedOrder.EnrichedAt = &enrichedAt
+
+	resp := &models.PlannerEnrichmentResponse{
+		MaintenanceOrder: orderID,
+		Status:           "REL",
+		Message:          "Maintenance order enriched successfully",
+		EnrichedAt:       enrichedAt,
+	}
+
+	for i, op := range storedOrder.Enrichment.Operations {
+		operationID := op.Operation
+		if operationID == "" {
+			operationID = fmt.Sprintf("%04d", (i+1)*10)
+		}
+		resp.Operations = append(resp.Operations, models.PlannerEnrichmentOperationState{
+			Operation: operationID,
+			Status:    "REL",
+		})
+	}
+
+	return resp, nil
+}
+
 // CreateMockOrderStatusResponse creates a mock order status response for simulator mode
 // The status progresses over time:
 // - 0-10 seconds: CRTD (Created)
@@ -113,6 +194,8 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	// Try to retrieve stored order data
 	g.mu.RLock()
 	storedOrder := g.orderStore[orderID]
+	plannerInputRequired := g.plannerInputRequired
+	plannerTECODelay := g.plannerTECODelay
 	g.mu.RUnlock()
 
 	// Determine status based on time elapsed since creation
@@ -120,12 +203,22 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	isTECO := false
 
 	if storedOrder != nil {
-		elapsed := time.Since(storedOrder.CreatedAt)
-		if elapsed >= 30*time.Second {
-			status = "TECO"
-			isTECO = true
-		} else if elapsed >= 10*time.Second {
-			status = "REL"
+		if plannerInputRequired {
+			if storedOrder.EnrichedAt != nil {
+				status = "REL"
+				if time.Since(*storedOrder.EnrichedAt) >= plannerTECODelay {
+					status = "TECO"
+					isTECO = true
+				}
+			}
+		} else {
+			elapsed := time.Since(storedOrder.CreatedAt)
+			if elapsed >= 30*time.Second {
+				status = "TECO"
+				isTECO = true
+			} else if elapsed >= 10*time.Second {
+				status = "REL"
+			}
 		}
 	}
 
@@ -150,30 +243,40 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 		startTime = req.MaintOrdBasicStartDateTime
 		endTime = req.MaintOrdBasicEndDateTime
 
-		// Generate operations from stored request
-		for i, op := range req.ToMaintenanceOrderOperation {
-			operationID := fmt.Sprintf("%04d", (i+1)*10)
-			operations = append(operations, models.SAPOrderOperationResponse{
-				MaintenanceOrder:          orderID,
-				MaintenanceOrderOperation: operationID,
-				OperationText:             op.OperationText,
-				WorkCenter:                op.WorkCenter,
-				OperationControlKey:       op.OperationControlKey,
-				OperationStandardDuration: op.OperationStandardDuration,
-				OperationDurationUnit:     op.OperationDurationUnit,
-				OperationStatus:           "CNF",
-				ActualWorkQuantity:        op.OperationStandardDuration, // Use planned as actual for simplicity
-				WorkQuantityUnit:          op.OperationDurationUnit,
-				Metadata: struct {
-					ID   string `json:"id"`
-					URI  string `json:"uri"`
-					Type string `json:"type"`
-				}{
-					ID:   fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, operationID),
-					URI:  fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, operationID),
-					Type: "API_MAINTENANCE_ORDER.A_MaintenanceOrderOperationType",
-				},
-			})
+		if storedOrder.Enrichment != nil {
+			if storedOrder.Enrichment.PlannedStartDateTime != "" {
+				startTime = storedOrder.Enrichment.PlannedStartDateTime
+			}
+			if storedOrder.Enrichment.PlannedEndDateTime != "" {
+				endTime = storedOrder.Enrichment.PlannedEndDateTime
+			}
+			operations = g.operationsFromPlannerEnrichment(orderID, storedOrder.Enrichment, isTECO)
+		} else {
+			// Generate operations from stored request
+			for i, op := range req.ToMaintenanceOrderOperation {
+				operationID := fmt.Sprintf("%04d", (i+1)*10)
+				operations = append(operations, models.SAPOrderOperationResponse{
+					MaintenanceOrder:          orderID,
+					MaintenanceOrderOperation: operationID,
+					OperationText:             op.OperationText,
+					WorkCenter:                op.WorkCenter,
+					OperationControlKey:       op.OperationControlKey,
+					OperationStandardDuration: op.OperationStandardDuration,
+					OperationDurationUnit:     op.OperationDurationUnit,
+					OperationStatus:           "CNF",
+					ActualWorkQuantity:        op.OperationStandardDuration, // Use planned as actual for simplicity
+					WorkQuantityUnit:          op.OperationDurationUnit,
+					Metadata: struct {
+						ID   string `json:"id"`
+						URI  string `json:"uri"`
+						Type string `json:"type"`
+					}{
+						ID:   fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, operationID),
+						URI:  fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, operationID),
+						Type: "API_MAINTENANCE_ORDER.A_MaintenanceOrderOperationType",
+					},
+				})
+			}
 		}
 	}
 
@@ -241,7 +344,9 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	resp.D.ToMaintenanceOrderOperation.Results = operations
 
 	// Add component and object list data only for TECO/CLSD orders
-	if isTECO {
+	if isTECO && storedOrder != nil && storedOrder.Enrichment != nil {
+		resp.D.ToMaintOrderObjectListItem.Results = g.generateObjectList(orderID, equipment, storedOrder)
+	} else if isTECO {
 		// Generate components and attach to operations (real SAP structure)
 		components := g.generateComponents(orderID, equipment, plant)
 		// Attach components to the relevant operation (typically operation 0020)
@@ -258,6 +363,162 @@ func (g *MockGenerator) CreateMockOrderStatusResponse(orderID string) *models.SA
 	}
 
 	return resp
+}
+
+func validatePlannerEnrichment(req *models.PlannerEnrichmentRequest) error {
+	if req == nil || len(req.Operations) == 0 {
+		return ErrInvalidEnrichment
+	}
+
+	for _, op := range req.Operations {
+		if strings.TrimSpace(op.Description) == "" ||
+			strings.TrimSpace(op.WorkCenter) == "" ||
+			strings.TrimSpace(op.Plant) == "" ||
+			strings.TrimSpace(op.PlannedWorkQuantity) == "" ||
+			strings.TrimSpace(op.WorkQuantityUnit) == "" {
+			return ErrInvalidEnrichment
+		}
+
+		for _, component := range op.Components {
+			if strings.TrimSpace(component.Material) == "" ||
+				strings.TrimSpace(component.RequiredQuantity) == "" ||
+				strings.TrimSpace(component.Unit) == "" ||
+				strings.TrimSpace(component.Plant) == "" {
+				return ErrInvalidEnrichment
+			}
+		}
+	}
+
+	return nil
+}
+
+func normalizePlannerEnrichment(req *models.PlannerEnrichmentRequest) *models.PlannerEnrichmentRequest {
+	normalized := *req
+	normalized.Operations = make([]models.EnrichedOperation, len(req.Operations))
+
+	for i, op := range req.Operations {
+		normalizedOp := op
+		if normalizedOp.Operation == "" {
+			normalizedOp.Operation = fmt.Sprintf("%04d", (i+1)*10)
+		}
+		if normalizedOp.ControlKey == "" {
+			normalizedOp.ControlKey = "PM01"
+		}
+		if normalizedOp.PlannedDuration == "" {
+			normalizedOp.PlannedDuration = normalizedOp.PlannedWorkQuantity
+		}
+		if normalizedOp.DurationUnit == "" {
+			normalizedOp.DurationUnit = normalizedOp.WorkQuantityUnit
+		}
+
+		normalizedOp.Components = make([]models.EnrichedComponent, len(op.Components))
+		for j, component := range op.Components {
+			normalizedComponent := component
+			if normalizedComponent.Component == "" {
+				normalizedComponent.Component = fmt.Sprintf("%04d", j+1)
+			}
+			if normalizedComponent.ItemCategory == "" {
+				normalizedComponent.ItemCategory = "L"
+			}
+			if normalizedComponent.GoodsMovementType == "" {
+				normalizedComponent.GoodsMovementType = "261"
+			}
+			normalizedOp.Components[j] = normalizedComponent
+		}
+
+		normalized.Operations[i] = normalizedOp
+	}
+
+	return &normalized
+}
+
+func (g *MockGenerator) operationsFromPlannerEnrichment(orderID string, enrichment *models.PlannerEnrichmentRequest, isTECO bool) []models.SAPOrderOperationResponse {
+	operations := make([]models.SAPOrderOperationResponse, 0, len(enrichment.Operations))
+
+	for _, op := range enrichment.Operations {
+		operation := models.SAPOrderOperationResponse{
+			MaintenanceOrder:          orderID,
+			MaintenanceOrderOperation: op.Operation,
+			OperationText:             op.Description,
+			WorkCenter:                op.WorkCenter,
+			OperationControlKey:       op.ControlKey,
+			OperationStandardDuration: op.PlannedDuration,
+			OperationDurationUnit:     op.DurationUnit,
+			OperationStatus:           "REL",
+			WorkQuantityUnit:          op.WorkQuantityUnit,
+			Metadata: struct {
+				ID   string `json:"id"`
+				URI  string `json:"uri"`
+				Type string `json:"type"`
+			}{
+				ID:   fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, op.Operation),
+				URI:  fmt.Sprintf(".../A_MaintenanceOrderOperation(MaintenanceOrder='%s',MaintenanceOrderOperation='%s')", orderID, op.Operation),
+				Type: "API_MAINTENANCE_ORDER.A_MaintenanceOrderOperationType",
+			},
+		}
+
+		if isTECO {
+			operation.OperationStatus = "CNF"
+			operation.ActualWorkQuantity = op.ActualWorkQuantity
+			if operation.ActualWorkQuantity == "" {
+				operation.ActualWorkQuantity = op.PlannedWorkQuantity
+			}
+			operation.OpActualExecutionStartDateTime = op.ActualStartDateTime
+			operation.OpActualExecutionEndDateTime = op.ActualEndDateTime
+			operation.ToMaintOrderOpComponent2.Results = g.componentsFromPlannerOperation(orderID, op)
+		}
+
+		operations = append(operations, operation)
+	}
+
+	return operations
+}
+
+func (g *MockGenerator) componentsFromPlannerOperation(orderID string, op models.EnrichedOperation) []models.SAPOrderComponentResponse {
+	components := make([]models.SAPOrderComponentResponse, 0, len(op.Components))
+	reservationBase := fmt.Sprintf("%010d", time.Now().Unix()%10000000)
+
+	for i, component := range op.Components {
+		quantity := component.UsedQuantity
+		if quantity == "" {
+			quantity = component.RequiredQuantity
+		}
+
+		finalIssue := false
+		if component.FinalIssue != nil {
+			finalIssue = *component.FinalIssue
+		}
+
+		reservationItem := fmt.Sprintf("%04d", i+1)
+		components = append(components, models.SAPOrderComponentResponse{
+			MaintenanceOrder:               orderID,
+			MaintenanceOrderOperation:      op.Operation,
+			MaintenanceOrderSubOperation:   "0000",
+			MaintenanceOrderComponent:      component.Component,
+			Product:                        component.Material,
+			MaintOrdOperationComponentText: component.Description,
+			MaintOrdOpCompRequiredQuantity: quantity,
+			BaseUnit:                       component.Unit,
+			MaintComponentItemCategory:     component.ItemCategory,
+			GoodsMovementType:              component.GoodsMovementType,
+			Plant:                          component.Plant,
+			StorageLocation:                component.StorageLocation,
+			Reservation:                    reservationBase,
+			ReservationItem:                reservationItem,
+			ReservationIsFinallyIssued:     finalIssue,
+			Metadata: struct {
+				ID   string `json:"id"`
+				URI  string `json:"uri"`
+				Type string `json:"type"`
+			}{
+				ID:   fmt.Sprintf(".../A_MaintenanceOrderComponent(MaintenanceOrder='%s',Component='%s')", orderID, component.Component),
+				URI:  fmt.Sprintf(".../A_MaintenanceOrderComponent(MaintenanceOrder='%s',Component='%s')", orderID, component.Component),
+				Type: "API_MAINTENANCE_ORDER.MaintOrderOpComponent_Type",
+			},
+		})
+	}
+
+	return components
 }
 
 // generateComponents creates component list based on equipment type

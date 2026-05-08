@@ -69,10 +69,7 @@ test-simulator:
 	fi
 	@echo ""
 	@echo "Starting SAP Adaptor on port 8080..."
-	@SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \
-		SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \
-		SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \
-		./bin/$(BINARY_NAME) > /tmp/sap-adaptor.log 2>&1 & echo $$! > .adaptor.pid
+	@./bin/$(BINARY_NAME) > /tmp/sap-adaptor.log 2>&1 & echo $$! > .adaptor.pid
 	@sleep 2
 	@if ps -p `cat .adaptor.pid` > /dev/null 2>&1; then \
 		echo "✅ SAP Adaptor started (PID: `cat .adaptor.pid`)"; \
@@ -107,6 +104,66 @@ test-simulator:
 	@echo "✅ Test completed successfully!"
 	@echo "========================================="
 
+test-planner-enrichment:
+	@echo "========================================="
+	@echo "Starting Planner Enrichment End-to-End Demo"
+	@echo "========================================="
+	@echo ""
+	@echo "Cleaning up any existing services..."
+	@-lsof -ti:8081,8080 | xargs kill -9 2>/dev/null || true
+	@sleep 1
+	@echo "✅ Ports cleared"
+	@echo ""
+	@echo "Building binaries..."
+	@$(GOBUILD) -o bin/$(SIMULATOR_NAME) ./cmd/simulator
+	@$(GOBUILD) -o bin/$(BINARY_NAME) ./cmd/server
+	@$(GOBUILD) -o bin/test ./cmd/test
+	@echo "✅ Binaries built"
+	@echo ""
+	@echo "Starting simulator on port 8081 with planner input required..."
+	@./bin/$(SIMULATOR_NAME) --planner-input=required > /tmp/sap-simulator.log 2>&1 & echo $$! > .simulator.pid
+	@sleep 2
+	@if ps -p `cat .simulator.pid` > /dev/null 2>&1; then \
+		echo "✅ Simulator started (PID: `cat .simulator.pid`)"; \
+	else \
+		echo "❌ Simulator failed to start"; \
+		cat /tmp/sap-simulator.log; \
+		rm -f .simulator.pid; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Starting SAP Adaptor on port 8080..."
+	@./bin/$(BINARY_NAME) > /tmp/sap-adaptor.log 2>&1 & echo $$! > .adaptor.pid
+	@sleep 2
+	@if ps -p `cat .adaptor.pid` > /dev/null 2>&1; then \
+		echo "✅ SAP Adaptor started (PID: `cat .adaptor.pid`)"; \
+	else \
+		echo "❌ SAP Adaptor failed to start"; \
+		cat /tmp/sap-adaptor.log; \
+		kill `cat .simulator.pid` 2>/dev/null || true; \
+		rm -f .simulator.pid .adaptor.pid; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "Running planner enrichment demo..."
+	@echo "========================================="
+	@echo ""
+	@SAP_PLANNER_ENRICHMENT_DEMO=true ./bin/test || (echo ""; echo "❌ Demo failed"; kill `cat .simulator.pid .adaptor.pid` 2>/dev/null; rm -f .simulator.pid .adaptor.pid; exit 1)
+	@echo ""
+	@echo "========================================="
+	@echo "Stopping services..."
+	@kill `cat .simulator.pid .adaptor.pid` 2>/dev/null || true
+	@rm -f .simulator.pid .adaptor.pid
+	@echo "✅ Services stopped"
+	@echo ""
+	@echo "Logs available at:"
+	@echo "  - /tmp/sap-simulator.log"
+	@echo "  - /tmp/sap-adaptor.log"
+	@echo ""
+	@echo "========================================="
+	@echo "✅ Planner enrichment demo completed successfully!"
+	@echo "========================================="
+
 # Test with simulator running
 test-full:
 	@echo "Starting simulator in background..."
@@ -122,6 +179,9 @@ clean:
 	$(GOCLEAN)
 	rm -f bin/$(BINARY_NAME)
 	rm -f bin/$(SIMULATOR_NAME)
+	rm -f bin/adaptor
+	rm -f bin/server
+	rm -f bin/simulator
 	rm -f bin/test
 	rm -f test-simulator
 	rm -f .simulator.pid
@@ -160,6 +220,7 @@ help:
 	@echo "  run-simulator      - Run the simulator"
 	@echo "  test               - Run unit tests"
 	@echo "  test-simulator     - Test simulator functionality"
+	@echo "  test-planner-enrichment - Demo planner enrichment flow"
 	@echo "  test-full          - Test with simulator running in background"
 	@echo "  clean              - Clean build artifacts"
 	@echo "  deps               - Download and tidy dependencies"
