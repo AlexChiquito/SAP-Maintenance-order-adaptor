@@ -9,7 +9,7 @@ planned work, and optional actual work.
 
 ## Simulator Mode
 ```bash
-./sap-simulator --planner-input=required
+./bin/sap-simulator --planner-input=required
 ```
 
 ## Process Flow
@@ -46,7 +46,7 @@ sequenceDiagram
     Note over Planner: Planner gathers data from:<br/>- Digital Twin (asset history)<br/>- Inventory (spare parts)<br/>- 3rd party systems
 
     Planner->>+Simulator: POST /planner/orders/400000586/enrich
-    Note right of Planner: Planning data:<br/>{<br/>  "operations": [{<br/>    "operationId": "0010",<br/>    "description": "Disassemble pump",<br/>    "plannedWorkQuantity": "4.0",<br/>    "workQuantityUnit": "H",<br/>    "workCenter": "MECH-01"<br/>  }, {<br/>    "operationId": "0020",<br/>    "description": "Replace seal",<br/>    "plannedWorkQuantity": "3.0",<br/>    "workQuantityUnit": "H",<br/>    "workCenter": "MECH-01"<br/>  }],<br/>  "materials": [{<br/>    "material": "SEAL-X200",<br/>    "quantity": 1,<br/>    "plant": "1000"<br/>  }, {<br/>    "material": "BEARING-KIT",<br/>    "quantity": 1,<br/>    "plant": "1000"<br/>  }]<br/>}
+    Note right of Planner: Planning data:<br/>{<br/>  "operations": [{<br/>    "operation": "0010",<br/>    "description": "Disassemble pump",<br/>    "plannedWorkQuantity": "4.0",<br/>    "workQuantityUnit": "H",<br/>    "workCenter": "MECH-01",<br/>    "components": []<br/>  }, {<br/>    "operation": "0020",<br/>    "description": "Replace seal",<br/>    "plannedWorkQuantity": "3.0",<br/>    "workQuantityUnit": "H",<br/>    "workCenter": "MECH-01",<br/>    "components": [{<br/>      "material": "SEAL-X200",<br/>      "quantity": 1,<br/>      "plant": "1000"<br/>    }, {<br/>      "material": "BEARING-KIT",<br/>      "quantity": 1,<br/>      "plant": "1000"<br/>    }]<br/>  }]<br/>}
 
     Simulator-->>-Planner: 200 OK
     Note left of Simulator: Status: CRTD → REL<br/>(Auto-released on enrichment)
