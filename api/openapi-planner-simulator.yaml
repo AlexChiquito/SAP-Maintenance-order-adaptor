@@ -6,13 +6,8 @@ info:
     Interface used by the planner to enrich a maintenance order in the SAP
     Simulator.
 
-    This specification intentionally exposes only one operation:
+    This specification exposes only one operation:
     POST /planner/orders/{maintenanceOrder}/enrich
-
-    The payload is simplified for planner use, while keeping SAP-oriented field
-    names where they help preserve the meaning of the data. It does not expose
-    SAP OData entity paths, navigation properties, response wrappers, or $expand
-    semantics.
 
     The planner can provide:
     - planned operations and planned work
