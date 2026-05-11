@@ -31,12 +31,9 @@ To run the end-to-end test:
 
 ```bash
 # Terminal 1: Start the simulator
-./bin/simulator
+./bin/sap-simulator
 
 # Terminal 2: Start the adaptor (in simulator mode)
-SAP_ADAPTOR_SAP_BASE_URL=http://localhost:8081 \
-SAP_ADAPTOR_SAP_SIMULATOR_MODE=true \
-SAP_ADAPTOR_DIGITAL_TWIN_BASE_URL=http://localhost:8082 \
 ./bin/sap-adaptor
 
 # Terminal 3: Run the test
@@ -69,6 +66,8 @@ docker compose up -d
 
 This will start the service in simulator mode, which is perfect for testing and development. By default:
 - The service runs on port 8080
+- The SAP simulator is expected on port 8081
+- The Digital Twin callback target defaults to port 8082
 - Simulator mode is enabled (no real SAP connection required)
 - Log level is set to "info"
 - Health checks are configured
@@ -128,6 +127,11 @@ go run ./cmd/server
 ```
 
 The service will start on `http://localhost:8080` in **simulator mode** by default.
+
+For local multi-process demo defaults:
+- SAP Adaptor: `http://localhost:8080`
+- SAP Simulator: `http://localhost:8081`
+- Digital Twin callback listener: `http://localhost:8082`
 
 ## Configuration
 
